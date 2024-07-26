@@ -1,0 +1,68 @@
+
+body{
+    background-image: url('imgs/Rakku_Guy_Kirlia.jpg') ;
+    background-repeat:no-repeat;
+    background-position: center;
+    background-clip: border-box;
+    background-size:contain;
+    background-color: darkcyan;
+}
+
+/*
+:root{
+    --main-bg-color: darkcyan;
+    --main-text-color: black;
+}
+body {
+    background-color: var(--main-bg-color);
+    color: var(--main-text-color);
+}
+.container{
+    background-image: url('imgs/Rakku_Guy_Kirlia.jpg');
+    background-repeat:no-repeat;
+    background-position: center;
+    width: 100%;
+    display:flex;
+    flex-direction:row;
+    flex-shrink:1;
+
+    background-size:auto;
+    background-attachment:local;
+    display: inline-flex;
+    background-clip: border-box;
+    background-size: auto;    
+
+    display:block; 
+    background-color: wheat;
+    position: fixed;
+}
+
+div#imgContainer {
+    min-width: 150px;
+    min-height: 150px;
+    max-width: 250px;
+    max-height: 250px;
+    padding: 13px;
+    float:right;
+}
+
+.container_text{
+    margin: 0; 
+    width: 300px;
+}
+
+
+.container{
+    position: absolute; 
+    transform: scale(0.75); 
+    display: inline-block; 
+    border: 2px dotted black; 
+    box-sizing: border-box; 
+    background-color: wheat;
+}
+.container_image{
+    position:relative; 
+    left: 1%; 
+    margin-top: 1%;
+} */
+
