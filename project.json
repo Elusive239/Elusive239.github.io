@@ -5,6 +5,8 @@
     "version": "0.1.0",
     "sources": [ "./main.c3" ],
     "output": ".",
+    "no-entry": true, 
+    "cc": "gcc",
     "targets": {
         "wasm": {
             "name": "out",
@@ -12,7 +14,6 @@
             "type": "executable",
             "reloc": "none",
             "link-libc": false,
-            "no-entry": true, 
             "opt": "O5"
         }
     },

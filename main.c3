@@ -1,18 +1,18 @@
 module noir;
-import console;
+import js::console;
+
 
 fn void main() @wasm @extern("main"){
     console::log("Hello %s!", "World");
 }
 
-module console;
+module js::console;
 fn void log(String format, args...){
     @pool(){
         DString str = dstring::temp_with_capacity(format.len + args.len * 8);
         str.appendf(format, ...args);
-        String ret_str = str.str_view().copy();
+        String ret_str = str.str_view().tcopy();
         write(ret_str.ptr, ret_str.len);
-        ret_str.free();
     };
 }
 
