@@ -1,0 +1,21 @@
+{
+    "langrev": "1",
+    "warnings": [ "no-unused" ],
+    "authors": [ "Elusive239 <@elusive-noir.bsky.social"],
+    "version": "0.1.0",
+    "sources": [ "./main.c3" ],
+    "output": ".",
+    "targets": {
+        "wasm": {
+            "name": "out",
+            "target": "wasm32",
+            "type": "executable",
+            "reloc": "none",
+            "link-libc": false,
+            "no-entry": true, 
+            "opt": "O5"
+        }
+    },
+    "cpu": "generic",
+    "opt": "O0"
+}
