@@ -1,11 +1,11 @@
 
 body{
-    background-image: url('imgs/Rakku_Guy_Kirlia.jpg') ;
+    /* background-image: url('imgs/Rakku_Guy_Kirlia.jpg') ; */
     background-repeat:no-repeat;
     background-position: center;
     background-clip: border-box;
     background-size:contain;
-    background-color: darkcyan;
+    background-color: rgb(3, 47, 47);
 }
 
 /*
