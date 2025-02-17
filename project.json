@@ -9,7 +9,9 @@
     "targets": {
         "wasm": {
             "name": "out",
-            "target": "wasm32",
+            //NOTE: BROKEN IN CURRENT VERSION OF C3 COMPILER,
+            //BUILD WASM WITH "c3c build wasm --target wasm32 --no-entry"!
+            // "target": "wasm32",
             "type": "executable",
             "reloc": "none",
             "link-libc": false,
