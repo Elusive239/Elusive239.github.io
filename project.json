@@ -3,11 +3,13 @@
     "warnings": [ "no-unused" ],
     "authors": [ "Elusive239 <@elusive-noir.bsky.social"],
     "version": "0.1.0",
-    "sources": [ "./main.c3" ],
-    "output": ".",
+    "sources": [ "./main.c3", "./markdown.c3" ],
     "cc": "gcc",
     "targets": {
-        "wasm": {
+        "proj": {
+            "type": "executable"
+        },"wasm": {
+            "output": ".",
             "name": "out",
             //NOTE: BROKEN IN CURRENT VERSION OF C3 COMPILER,
             //BUILD WASM WITH "c3c build wasm --target wasm32 --no-entry"!
