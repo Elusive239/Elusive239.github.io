@@ -119,6 +119,7 @@ fn Html md_stream_to_html(InStream stream) @wasm @extern("md_stream_to_html"){
     MDState state = MDState.START_OF_LINE;
     bool bold;
     bool italic;
+    bool bullets;
     usz headerSize;
     while(true){
         char! current = stream.read_byte();
@@ -152,8 +153,16 @@ fn Html md_stream_to_html(InStream stream) @wasm @extern("md_stream_to_html"){
                     if(stream.peek()!! == ' '){
                         state = MDState.BULLET_POINT;
                         stream.read_byte()!!;
-                        output.append_html("i", bold, italic);
+                        if(!bullets){
+                            output.append_html("ul", bold, italic);
+                        }
+                        output.append_html("li", bold, italic);
+                        bullets = true;
                     }else if(current == '*') {
+                        if(bullets){
+                            output.append("</ul>");
+                            bullets = false;
+                        }
                         state = MDState.TEXT;
                         usz stars = stream.count('*') + 1;
                         if(stars == 1 || stars == 3){
@@ -166,6 +175,10 @@ fn Html md_stream_to_html(InStream stream) @wasm @extern("md_stream_to_html"){
                         output.append_html("span", bold, italic);
                     }
                     else{
+                        // if(bullets){
+                        //     output.append("</ul>");
+                        //     bullets = false;
+                        // }
                         state = MDState.TEXT;
                         output.append_char(current);
                     }
@@ -181,6 +194,9 @@ fn Html md_stream_to_html(InStream stream) @wasm @extern("md_stream_to_html"){
                     temp.appendf("</h%d>", headerSize);
                     output.append(temp.str_view());
                     temp.free();
+                    if(bullets){
+                        output.append("</li>");
+                    }
                     state = START_OF_LINE;
                 }
                 if(current == '\r') continue;
@@ -189,6 +205,9 @@ fn Html md_stream_to_html(InStream stream) @wasm @extern("md_stream_to_html"){
                 if(current == '\n'){
                     state = START_OF_LINE;
                     output.append("</span>");
+                    if(bullets){
+                        output.append("</li>");
+                    }
                 }else if(current == '*') {
                     usz stars = stream.count('*') + 1;
                     if(stars == 1 || stars == 3){
@@ -206,7 +225,9 @@ fn Html md_stream_to_html(InStream stream) @wasm @extern("md_stream_to_html"){
             case MDState.BULLET_POINT: 
                 console::log("BULLET_POINT");
                 if(current == '\n'){
-                    output.append("</i>");
+                    if(bullets){
+                        output.append("</li>");
+                    }
                     state = START_OF_LINE;
                 }else if(current == '*') {
                     usz stars = stream.count('*') + 1;
