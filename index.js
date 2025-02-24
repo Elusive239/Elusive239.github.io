@@ -1,7 +1,7 @@
 let wasm = null;
 window.onload = async () => {
     wasm = await startWasm("./out.wasm");
-    wasm.main();
+    // wasm.main();
     window.customElements.define('noir-down', MarkDown);
 };
 
@@ -49,7 +49,7 @@ class MarkDown extends HTMLElement{
                 wasm.set(wasmStr, i, buffer[i].charCodeAt(0));
             }
             const wSize = wasm.malloc(32); //1 int ptr
-            const outPtr = wasm.md_to_html(wasmStr, bufferLen, wSize);
+            const outPtr = wasm.js_md_to_html(wasmStr, bufferLen, wSize);
             const outSize = new Uint8ClampedArray(wasm.memory.buffer, wSize, 1);
             const outText = new TextDecoder().decode(new Uint8ClampedArray(wasm.memory.buffer, outPtr, outSize));
             // console.log(outText);

@@ -1,6 +1,4 @@
 ### In Progress!
 
-Come back later! 
-
-
-**Hello!**
+Come back later!  
+* **Hello!**
