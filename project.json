@@ -3,7 +3,7 @@
     "warnings": [ "no-unused" ],
     "authors": [ "Elusive239 <@elusive-noir.bsky.social"],
     "version": "0.1.0",
-    "sources": [ "./main.c3", "./markdown.c3" ],
+    "sources": [ "./main.c3", "./markdown.c3", "./html.c3" ],
     "cc": "gcc",
     "targets": {
         "proj": {
