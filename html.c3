@@ -100,15 +100,15 @@ fn void new_parse_md(HTMLComponent* current, InStream stream){
 fn void parse_start(HTMLComponent* current, char* buffer, usz buffer_sz){
     if(buffer_sz == 0 || buffer[0] == 0) return;
 
-    if(buffer[0].is_blank() || buffer[0].is_space()){
-        console::log("%s|%d", buffer[0..buffer_sz],buffer);
+    if((buffer[0].is_blank() || buffer[0].is_space())){
+        // console::log("%s|%d", buffer[0..buffer_sz],buffer);
         int i = 0;
-        while(i<buffer_sz && (buffer[i].is_blank() || buffer[i].is_space())){
+        while(i<buffer_sz && (buffer[i].is_blank() || buffer[i].is_space() || buffer[i] == 0)){
             i++;
         }
         buffer = buffer+i;
         buffer_sz = buffer_sz - i;
-        console::log("%s|%d", buffer[0..buffer_sz],buffer);
+        // console::log("%s|%d", buffer[0..buffer_sz],buffer);
     }
 
     if('#' == buffer[0]){
@@ -116,17 +116,30 @@ fn void parse_start(HTMLComponent* current, char* buffer, usz buffer_sz){
         int i = 0; 
         while(buffer[i] == '#') i++;
         parse_header(current, buffer+i, buffer_sz-i, i);
-    }else if ('>' == buffer[0] && ' ' == buffer[1]){
+    } else if ('>' == buffer[0] && ' ' == buffer[1]){
         parse_block_quote(current, buffer+1, buffer_sz-1);
-    }else if ('-' == buffer[0] && '-' == buffer[1] && '-' == buffer[2]){
+    } else if ('-' == buffer[0] && '-' == buffer[1] && '-' == buffer[2]){
         current.add(HTMLComponent{.tag="hr"});
         parse_start(current, buffer+3, buffer_sz-3);
-    }else if (('-' == buffer[0] || '*' == buffer[0]) && ' ' == buffer[1] ){
+    } else if (('-' == buffer[0] || '*' == buffer[0]) && ' ' == buffer[1] ){
         parse_unordered_list(current, buffer, buffer_sz, '-' == buffer[0] ? '-' : '*');
+    } else if(buffer[0].is_digit()){
+        usz i = 0;
+        while(buffer[i].is_digit()) i++;
+        if(buffer[i] == '.'){
+            parse_ordered_list(current, buffer, buffer_sz,'.');
+        } else if(buffer[i] == ')'){
+            parse_ordered_list(current, buffer, buffer_sz,')');
+        }else{
+            current.make_paragraph();
+            i =0;
+            parse_text( &current.inner[current.inner.len()-1], buffer,buffer_sz, &i);
+        }
+        // console::log("Contents: %s", buffer[0..i-1]);
     } else if('`' == buffer[0]){
         usz i;
         parse_inline_code(current, buffer, buffer_sz, &i);
-        console::log("Parsed %d", i);
+        // console::log("Parsed %d", i);
         parse_start(current, buffer+i, buffer_sz-i);
     } else {    
         current.make_paragraph();
@@ -167,19 +180,50 @@ macro void parse_line(HTMLComponent* current, char* buffer, usz buffer_sz){
     }
 }
 
+fn void parse_ordered_list(HTMLComponent* current, char* buffer, usz buffer_sz, char to_check){
+    HTMLComponent ul = HTMLComponent{.tag="ol"};
+    String t = (String) buffer[0..buffer_sz];
+    String[] arr = t.split("\n", allocator: allocator::temp());
+    usz size = 0; 
+    for(usz i = 0; i < arr.len-1; i++) size += arr[i].len + 2;
+
+    arr[arr.len-1] =  arr[arr.len-1][0..buffer_sz - size];
+    defer allocator::free(allocator::temp(), arr);
+    foreach(str : arr){
+        HTMLComponent next = HTMLComponent{.tag = "li"};
+        int i = 0;
+        for(; i < str.len && str[i].is_digit(); i++);
+        assert(buffer[i] == to_check);
+        i++;
+        if(i<str.len)next.content.appendf("%s", str[i..].trim());
+        // console::log("%s | %d", str[i..str.len-1], str.len-1);
+        ul.add(next);
+    }
+    // console::log("Split: %s", arr);
+    current.add(ul);
+    console::log("output: %s", current.to_text());
+}
+
 fn void parse_unordered_list(HTMLComponent* current, char* buffer, usz buffer_sz, char bp_check){
     assert(buffer[0] == bp_check);
     assert(buffer[1] == ' ');
-    HTMLComponent ul = HTMLComponent{.tag="ul"};
+    // console::log("Before List: %s", current.to_text());
+    parse_list(
+        current, buffer, buffer_sz, bp_check == '*' ? "* " : "- " , "ul"
+    );
+    // console::log("Created List: %s", current.to_text());
+}
+
+macro void parse_list(HTMLComponent* current, char* buffer, usz buffer_sz, String needle,String outer_tag){
+    HTMLComponent ul = HTMLComponent{.tag=outer_tag};
     HTMLComponent next;
     for(usz i = 0; i < buffer_sz; i++){
-        if(buffer[i] == bp_check && i+2 < buffer_sz && buffer[i+1] == ' '){
+        if(i+needle.len < buffer_sz && ((String) buffer[i..i+needle.len-1] ) == needle[0..needle.len-1]){
             if(next.tag != ""){
                 ul.add(next);
             }
-
             next = HTMLComponent{.tag="li"};
-            i+=1;
+            i+=needle.len - 1;
             continue;
         }
 
@@ -251,185 +295,8 @@ fn void parse_emphasis(HTMLComponent* current, char* buffer, usz buffer_sz, usz*
     *index = i;
 }
 
-fn void parse_md(HTMLComponent* current, InStream stream){
-    while(true){
-        char! next = stream.read_byte();
-        if(catch next) return;
-        // console::log("Current: %s Char: %c|%d", current.tag, next, next);
-        if(next == '\r'|| next == '' || next == '' || next == 0) continue;
-        if((current.tag.starts_with("h") || current.tag.starts_with("li")) && next == '\n'){
-            return;
-        }
-        if(next == '#'){
-            usz headerCount = 0;
-            char! headerTrack;
-            do{
-                headerTrack = (stream.read_byte());
-                if(catch headerTrack) break;
-                headerCount++;
-            }while(headerTrack!! == '#');
-            stream.pushback_byte()!!;
-            current.make_header(headerCount);
-            parse_md(&current.inner[current.inner.len()-1], stream);
-        } else if(next == '-'){
-            usz dashCount = 1;
-            char! tracker = stream.read_byte();
-            while(tracker!! == '-'){
-                tracker = (stream.read_byte());
-                if(catch tracker) {tracker = 0; break;}
-                dashCount++;
-            }
-            stream.pushback_byte()!!;
-            if (dashCount == 1 && tracker!!.is_blank()){
-                current.make_unordered_list();
-                if(current.inner[current.inner.len()-1].tag == "ul"){
-                    stream.pushback_byte()!!;
-                    stream.pushback_byte()!!;
-                }
-                parse_md(&current.inner[current.inner.len()-1], stream);
-            }else if (dashCount == 3){
-                current.make_horizontal_rule();
-                continue;
-            } else{
-                current.content.append_char(next);
-                for(int i =0 ; i< dashCount-1; i++)current.content.append_char('-');
-            }
-        } else if(next == '*'){
-            usz starCount = 0;
-            char! starTrack;
-            do{
-                starTrack = (stream.read_byte());
-                if(catch starTrack){starTrack = 0; break;}
-                starCount++;
-            }while(starTrack!! == '*');
-            if(starCount == 1 && !starTrack!!.is_alpha()){
-                current.make_unordered_list();
-                if(current.inner[current.inner.len()-1].tag == "ul"){
-                    stream.pushback_byte()!!;
-                    stream.pushback_byte()!!;
-                }
-                parse_md(&current.inner[current.inner.len()-1], stream);
-            } else if(starCount == 3 && !starTrack!!.is_alpha() && !(current.tag != "em" || current.tag != "strong")){
-                current.make_horizontal_rule();
-                continue;
-            } else{
-                stream.pushback_byte()!!;
-                if(current.tag == "strong" && starCount >= 2) return;
-                if(current.tag == "em" && (starCount == 1 || starCount == 3)) return;
-
-                current.make_bold_or_italic(starCount);
-                switch(starCount){
-                    case 1:
-                    case 2:
-                        parse_md(&current.inner[current.inner.len()-1], stream);
-                    case 3: 
-                        parse_md(&current.inner[current.inner.len()-1].inner[0], stream);
-                        return;
-                    default: break;
-                }
-            }
-        } else if (current.tag == ""){
-            current.make_paragraph();
-            parse_md(&current.inner[current.inner.len()-1], stream);
-        } 
-        else if (current.tag == "ul" && !next.is_blank()){
-            stream.pushback_byte()!!;
-            return;
-        }
-        else if(next == '\n'){
-            if(stream.skip_blank_till_character('\n') && current.tag == "p"){
-                stream.pushback_byte()!!;
-                return;
-            }
-            // stream.pushback_byte()!!;
-            continue;
-        }
-        else{
-            current.content.append_char(next);
-        }
-    }
-}
-
-/*
-} else if (current.tag == ""){
-    current.make_paragraph();
-    parse_md(&current.inner[current.inner.len()-1], stream);
-} 
-else if (current.tag == "ul" && !next.is_blank()){
-    stream.pushback_byte()!!;
-    return;
-}
-else if(next == '\n'){
-    if(stream.skip_blank_till_character('\n') && current.tag == "p"){
-        stream.pushback_byte()!!;
-        return;
-    }
-    // stream.pushback_byte()!!;
-    continue;
-}
-else{
-    current.content.append_char(next);
-}
-*/
-
-
-macro bool InStream.skip_blank_till_character(&self, char key){
-    do{
-        char! c = self.read_byte();
-        if(try c) switch(c){
-            case key:
-                return true;
-            case 0:
-            case '\r':
-            case '\t':
-            case '\n':
-            case ' ':
-                continue;
-            default: 
-                break;
-        }
-    }while(self.available()!!);
-    self.pushback_byte()!!;
-    return false;
-}
-
-macro void HTMLComponent.make_horizontal_rule(HTMLComponent* root){
-    root.add(HTMLComponent{.tag = "hr"});
-}
-
 macro void HTMLComponent.make_paragraph(HTMLComponent* root){
     root.add(HTMLComponent{.tag = "p"});
-}
-
-macro void HTMLComponent.make_bold_or_italic(HTMLComponent* root, usz starCount){
-    switch(starCount){
-        case 0: 
-            return;
-        return;
-        case 1: root.add(HTMLComponent{.tag = "em"});
-        case 2: root.add(HTMLComponent{.tag = "strong"});
-        case 3:
-            HTMLComponent em = HTMLComponent{.tag = "em"};
-            em.add(HTMLComponent{.tag = "strong"});
-            root.add(em);
-        default:
-            for(int i =0 ; i < starCount; i++) root.content.append_char('*');
-    }
-}
-
-macro void HTMLComponent.make_unordered_list(HTMLComponent* root){
-    if(root.tag == "ul"){
-        root.add(HTMLComponent{
-            .inner = {},
-            .tag = "li",
-        });
-    }else{
-        HTMLComponent element_root = HTMLComponent{
-            .inner = {},
-            .tag = "ul",
-        };
-        root.add(element_root);
-    }
 }
 
 macro void HTMLComponent.make_header(HTMLComponent* root,usz headerSize){
