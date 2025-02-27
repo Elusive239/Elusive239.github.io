@@ -48,11 +48,14 @@ class MarkDown extends HTMLElement{
             for(let i = 0; i < bufferLen; i++){
                 wasm.set(wasmStr, i, buffer[i].charCodeAt(0));
             }
-            const wSize = wasm.malloc(32); //1 int ptr
+            // console.log("%d", wasm.size_of_usz());
+            const wSize = wasm.malloc(wasm.size_of_uint()); //1 int ptr
             const outPtr = wasm.to_html(wasmStr, bufferLen, wSize);
-            const outSize = new Uint8ClampedArray(wasm.memory.buffer, wSize, 1);
-            const outText = new TextDecoder().decode(new Uint8ClampedArray(wasm.memory.buffer, outPtr, outSize));
-            // console.log(outText);
+            const outSize = new Uint32Array(wasm.memory.buffer, wSize, 1);
+            const outText = new TextDecoder().decode(new Uint8ClampedArray(wasm.memory.buffer, outPtr, outSize[0]));
+            // console.log("OutText: ", outText);
+            // console.log("OutText as Array : ", Array.from(outText));
+            // console.log("Size: ", Array.from(outSize));
             div.innerHTML = outText;
             wasm.free(wasmStr);
             wasm.free(wSize);

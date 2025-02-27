@@ -3,18 +3,22 @@ import std::io;
 import std::collections;
 import js::console;
 
+fn uint size_of_uint() @wasm @extern("size_of_uint"){
+    return uint.sizeof;
+}
+
 def HTMLComponentList = List(<HTMLComponent>);
 
 struct HTMLComponent{
     String tag;
     DString content;
-    usz headerSize;
+    uint headerSize;
     HTMLComponentList inner;
 }
 
 struct HtmlDocument{
     char* data;
-    usz size;
+    uint size;
 }
 
 fn void HTMLComponent.add(&self, HTMLComponent component){
@@ -41,12 +45,12 @@ fn void HTMLComponent.recursive_to_text(&self, DString* dstr){
     dstr.appendf("</%s>",self.tag);
 }
 
-fn char* to_html(char* buffer, usz buffer_sz, int* out_size) @wasm @extern("to_html"){
+fn char* to_html(char* buffer, uint buffer_sz, uint* out_size) @wasm @extern("to_html"){
     ByteReader byteBuffer;
     byteBuffer.init(buffer[0..buffer_sz]);
     
     HtmlDocument doc = stream_to_html(&byteBuffer);// md_stream_to_html(&byteBuffer);
-    *out_size = (int) doc.size;
+    *out_size = doc.size;
     return doc.data;
 }
 
@@ -56,10 +60,12 @@ fn HtmlDocument stream_to_html(InStream stream){
     new_parse_md(&root, stream);
 
     String out = root.to_text();
-    return HtmlDocument{
-        .data = out[:out.len],
-        .size = out.len
-    };
+    // defer out.free();
+    HtmlDocument doc;
+    doc.data = allocator::new_array(allocator::heap(),char, out.len);
+    doc.data[0..out.len-1] = out[0..out.len-1];
+    doc.size = out.len;
+    return doc;
 }
 
 /*
@@ -74,7 +80,7 @@ fn HtmlDocument stream_to_html(InStream stream){
 fn void new_parse_md(HTMLComponent* current, InStream stream){
     char[1024*2] buffer;
     do{
-        usz index = 0;
+        uint index = 0;
         {
             while(stream.available()!!){
                 char! next = stream.read_byte();
@@ -93,11 +99,12 @@ fn void new_parse_md(HTMLComponent* current, InStream stream){
         }
 
         parse_start(current, &(buffer[0]), index);
-
+        buffer[0..(buffer.len-1)] = 0;
     }while(stream.available()!!);
+    // console::log("output: %s", current.to_text());
 }
 
-fn void parse_start(HTMLComponent* current, char* buffer, usz buffer_sz){
+fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
     if(buffer_sz == 0 || buffer[0] == 0) return;
 
     if((buffer[0].is_blank() || buffer[0].is_space())){
@@ -123,8 +130,10 @@ fn void parse_start(HTMLComponent* current, char* buffer, usz buffer_sz){
         parse_start(current, buffer+3, buffer_sz-3);
     } else if (('-' == buffer[0] || '*' == buffer[0]) && ' ' == buffer[1] ){
         parse_unordered_list(current, buffer, buffer_sz, '-' == buffer[0] ? '-' : '*');
-    } else if(buffer[0].is_digit()){
-        usz i = 0;
+    } 
+    // Ordered List
+    else if(buffer[0].is_digit()){
+        uint i = 0;
         while(buffer[i].is_digit()) i++;
         if(buffer[i] == '.'){
             parse_ordered_list(current, buffer, buffer_sz,'.');
@@ -136,33 +145,34 @@ fn void parse_start(HTMLComponent* current, char* buffer, usz buffer_sz){
             parse_text( &current.inner[current.inner.len()-1], buffer,buffer_sz, &i);
         }
         // console::log("Contents: %s", buffer[0..i-1]);
-    } else if('`' == buffer[0]){
-        usz i;
+    } 
+    else if('`' == buffer[0]){
+        uint i;
         parse_inline_code(current, buffer, buffer_sz, &i);
         // console::log("Parsed %d", i);
         parse_start(current, buffer+i, buffer_sz-i);
     } else {    
         current.make_paragraph();
-        usz i =0;
+        uint i =0;
         parse_text( &current.inner[current.inner.len()-1], buffer,buffer_sz, &i);
     }
 }
 
-fn void parse_block_quote(HTMLComponent* current, char* buffer, usz buffer_sz){
+fn void parse_block_quote(HTMLComponent* current, char* buffer, uint buffer_sz){
     current.add(HTMLComponent{.tag="blockquote"});
     HTMLComponent* next_comp = &current.inner[current.inner.len()-1];
     parse_line(next_comp, buffer, buffer_sz);
 }
 
-fn void parse_header(HTMLComponent* current, char* buffer, usz buffer_sz, int hash_count){
+fn void parse_header(HTMLComponent* current, char* buffer, uint buffer_sz, uint hash_count){
     current.make_header(hash_count);
     HTMLComponent* next_comp = &current.inner[current.inner.len()-1];
     parse_line(next_comp, buffer, buffer_sz);
 }
 
-macro void parse_line(HTMLComponent* current, char* buffer, usz buffer_sz){
+macro void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz){
     
-    for(usz i = 0; i < buffer_sz; i++){
+    for(uint i = 0; i < buffer_sz; i++){
         if(buffer[i] == 0){
             continue;
         }else if (buffer[i] == '\n'){
@@ -180,12 +190,12 @@ macro void parse_line(HTMLComponent* current, char* buffer, usz buffer_sz){
     }
 }
 
-fn void parse_ordered_list(HTMLComponent* current, char* buffer, usz buffer_sz, char to_check){
+fn void parse_ordered_list(HTMLComponent* current, char* buffer, uint buffer_sz, char to_check){
     HTMLComponent ul = HTMLComponent{.tag="ol"};
     String t = (String) buffer[0..buffer_sz];
     String[] arr = t.split("\n", allocator: allocator::temp());
-    usz size = 0; 
-    for(usz i = 0; i < arr.len-1; i++) size += arr[i].len + 2;
+    uint size = 0; 
+    for(uint i = 0; i < arr.len-1; i++) size += arr[i].len + 2;
 
     arr[arr.len-1] =  arr[arr.len-1][0..buffer_sz - size];
     defer allocator::free(allocator::temp(), arr);
@@ -193,18 +203,18 @@ fn void parse_ordered_list(HTMLComponent* current, char* buffer, usz buffer_sz, 
         HTMLComponent next = HTMLComponent{.tag = "li"};
         int i = 0;
         for(; i < str.len && str[i].is_digit(); i++);
-        assert(buffer[i] == to_check);
+        assert(str[i] == to_check);
         i++;
-        if(i<str.len)next.content.appendf("%s", str[i..].trim());
+        if(i<str.len)next.content.appendf("%s", str[i..]);
         // console::log("%s | %d", str[i..str.len-1], str.len-1);
         ul.add(next);
     }
     // console::log("Split: %s", arr);
     current.add(ul);
-    console::log("output: %s", current.to_text());
+    // console::log("output: %s", current.to_text());
 }
 
-fn void parse_unordered_list(HTMLComponent* current, char* buffer, usz buffer_sz, char bp_check){
+fn void parse_unordered_list(HTMLComponent* current, char* buffer, uint buffer_sz, char bp_check){
     assert(buffer[0] == bp_check);
     assert(buffer[1] == ' ');
     // console::log("Before List: %s", current.to_text());
@@ -214,10 +224,10 @@ fn void parse_unordered_list(HTMLComponent* current, char* buffer, usz buffer_sz
     // console::log("Created List: %s", current.to_text());
 }
 
-macro void parse_list(HTMLComponent* current, char* buffer, usz buffer_sz, String needle,String outer_tag){
+macro void parse_list(HTMLComponent* current, char* buffer, uint buffer_sz, String needle,String outer_tag){
     HTMLComponent ul = HTMLComponent{.tag=outer_tag};
     HTMLComponent next;
-    for(usz i = 0; i < buffer_sz; i++){
+    for(uint i = 0; i < buffer_sz; i++){
         if(i+needle.len < buffer_sz && ((String) buffer[i..i+needle.len-1] ) == needle[0..needle.len-1]){
             if(next.tag != ""){
                 ul.add(next);
@@ -246,8 +256,8 @@ macro void parse_list(HTMLComponent* current, char* buffer, usz buffer_sz, Strin
     current.add(ul);
 }
 
-fn void parse_text(HTMLComponent* current, char* buffer, usz buffer_sz, usz* index){
-    usz i = *index;
+fn void parse_text(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index){
+    uint i = *index;
     for(; i < buffer_sz; i++){
         if(buffer[i] == 0){
             continue;
@@ -261,9 +271,9 @@ fn void parse_text(HTMLComponent* current, char* buffer, usz buffer_sz, usz* ind
     *index = i;
 }
 
-fn void parse_inline_code(HTMLComponent* current, char* buffer, usz buffer_sz, usz* index){
+fn void parse_inline_code(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index){
     assert(buffer[*index] == '`');
-    usz i = (*index)+1;
+    uint i = (*index)+1;
     current.add(HTMLComponent{.tag="code"});
     HTMLComponent* next_comp = &current.inner[current.inner.len()-1];
     while(i < buffer_sz && buffer[i] != '`'){
@@ -272,9 +282,9 @@ fn void parse_inline_code(HTMLComponent* current, char* buffer, usz buffer_sz, u
     *index = i+1;
 }
 
-fn void parse_emphasis(HTMLComponent* current, char* buffer, usz buffer_sz, usz* index){
-    usz i = *index;
-    usz starCount = 0;
+fn void parse_emphasis(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index){
+    uint i = *index;
+    uint starCount = 0;
     while(buffer[i] == '*') {
         starCount++; 
         i++;
@@ -299,7 +309,7 @@ macro void HTMLComponent.make_paragraph(HTMLComponent* root){
     root.add(HTMLComponent{.tag = "p"});
 }
 
-macro void HTMLComponent.make_header(HTMLComponent* root,usz headerSize){
+macro void HTMLComponent.make_header(HTMLComponent* root, uint headerSize){
     DString temp;
     temp.new_init();
     defer temp.free();
@@ -307,6 +317,6 @@ macro void HTMLComponent.make_header(HTMLComponent* root,usz headerSize){
     root.add(HTMLComponent{
         .inner = {},
         .tag = temp.copy_str(),
-        .headerSize = headerSize
+        .headerSize = (uint) headerSize
     });
 }

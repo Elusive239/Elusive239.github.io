@@ -7,7 +7,7 @@ import std::io::file;
 fn void main() @if(!env::WASM_NOLIBC){
     String testFile = (String) file::load_new("./test.md", allocator::heap())!!;
     // console::log("Loaded!");
-    int outSize;
+    uint outSize;
     char* output = html::to_html(testFile.ptr, testFile.len, &outSize);
     // console::log("%s", (String)output[0..outSize]);
     file::save("testOut.html", output[:outSize])!!;
@@ -15,7 +15,7 @@ fn void main() @if(!env::WASM_NOLIBC){
     allocator::free(allocator::heap(), output);
 }
 
-fn char* js_md_to_html(char* buffer, usz buffer_sz, int* size) @wasm @extern("js_md_to_html") {
+fn char* js_md_to_html(char* buffer, uint buffer_sz, int* size) @wasm @extern("js_md_to_html") {
     ByteReader byteBuffer;
     byteBuffer.init(buffer[0..buffer_sz]);
     console::log("Input: %s", (String) byteBuffer.bytes);
@@ -26,7 +26,7 @@ fn char* js_md_to_html(char* buffer, usz buffer_sz, int* size) @wasm @extern("js
 
 struct Html{
     char* data;
-    usz size;
+    uint size;
 }
 
 macro char! InStream.peek(&self){
@@ -35,8 +35,8 @@ macro char! InStream.peek(&self){
     return ret;
 }
 
-macro usz InStream.count(&self, char c){
-    usz count;
+macro uint InStream.count(&self, char c){
+    uint count;
     do{
         if(self.read_byte()!! == c){
             count++;
@@ -111,7 +111,7 @@ struct MDStateMachine{
     bool bold;
     bool italic;
     bool bullets;
-    usz headerSize;
+    uint headerSize;
     InStream stream;
 }
 
@@ -160,7 +160,7 @@ fn Html md_stream_to_html(InStream stream) @wasm @extern("md_stream_to_html"){
         }
     }
     Html md;
-    md.size = machine.len();
+    md.size = (uint) machine.len();
     md.data = allocator::new_array(allocator::heap(),char, md.size);
     console::log("Output: %s", machine.output);
     md.data[0..md.size-1] = machine.str_view()[0..md.size-1];
@@ -217,7 +217,7 @@ fn void start_of_line(MDStateMachine* machine, char current){
 }
 
 macro void set_font_settings(MDStateMachine* machine){
-    usz stars = machine.stream.count('*') + 1;
+    uint stars = machine.stream.count('*') + 1;
 
     if(stars > 6){
         for(int i = 0; i < stars - 6; i++) machine.stream.pushback_byte()!!;
@@ -379,7 +379,7 @@ fn void do_span(MDStateMachine* machine){
 }
 
 fn void do_header(MDStateMachine* machine){
-    usz hSize = machine.stream.count('#') +1;
+    uint hSize = machine.stream.count('#') +1;
 
     if(hSize > 6){
         for(;hSize; hSize--) machine.append_char('#');
