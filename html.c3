@@ -214,21 +214,29 @@ fn void parse_ordered_list(HTMLComponent* current, char* buffer, uint buffer_sz,
     // console::log("output: %s", current.to_text());
 }
 
-fn void parse_unordered_list(HTMLComponent* current, char* buffer, uint buffer_sz, char bp_check){
+fn void parse_unordered_list(HTMLComponent* current, char* buffer, uint buffer_sz, char bp_check, uint indent_level = 0, uint* ci = null){
     assert(buffer[0] == bp_check);
     assert(buffer[1] == ' ');
-    // console::log("Before List: %s", current.to_text());
-    parse_list(
-        current, buffer, buffer_sz, bp_check == '*' ? "* " : "- " , "ul"
-    );
-    // console::log("Created List: %s", current.to_text());
-}
+    DString needleBuilder;
+    needleBuilder.new_init();
+    defer needleBuilder.free();
+    for(int i =0;  i < indent_level; i++) needleBuilder.append_char(' ');
+    switch(bp_check){
+        case '*': 
+        case '-':             
+        case '+': 
+            needleBuilder.append_char(bp_check);
+            break;
+    }
+    needleBuilder.append_char(' ');
 
-macro void parse_list(HTMLComponent* current, char* buffer, uint buffer_sz, String needle,String outer_tag){
-    HTMLComponent ul = HTMLComponent{.tag=outer_tag};
+    String needle = needleBuilder.str_view();
+    HTMLComponent ul = HTMLComponent{.tag="ul"};
     HTMLComponent next;
-    for(uint i = 0; i < buffer_sz; i++){
+    for(uint i = ci == null ? 0 : *ci; i < buffer_sz; i++){
         if(i+needle.len < buffer_sz && ((String) buffer[i..i+needle.len-1] ) == needle[0..needle.len-1]){
+            
+
             if(next.tag != ""){
                 ul.add(next);
             }
@@ -236,6 +244,8 @@ macro void parse_list(HTMLComponent* current, char* buffer, uint buffer_sz, Stri
             i+=needle.len - 1;
             continue;
         }
+
+        if(ci != null) {*ci = i;}
 
         if(buffer[i] == 0){
             continue;

@@ -22,10 +22,10 @@ A website about me (Eventually!)!
 | [ ] | [Links](...)|
 | [ ] | ![Image](...)|
 | [X] | > Blockquotes|
-| [X] | * List|
-| [X] | - List|
-| [X] | 1. List|
-| [X] | 1) List|
+| [-] | * List|
+| [-] | - List|
+| [-] | 1. List|
+| [-] | 1) List|
 | [X] | --- Horizontal Rule|
 | [X] | `Inline Code`|
 | [ ] | ``` \`\`\`Code Block\`\`\` ```|
