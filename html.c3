@@ -229,8 +229,8 @@ fn void parse_list(HTMLComponent* current, char* buffer, uint buffer_sz, bool or
 fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_check){
     HTMLComponent root = HTMLComponent{.tag = tag};
     uint indent_level = 0;
+    console::log("Strings: %s", items);
     for(; items[0][indent_level] == ' '; indent_level++);
-
     for(uint i = 0; i < items.len; i++){
 
         String item = items[i];
@@ -240,7 +240,7 @@ fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_che
             uint di = i+1;
             for(; di < items.len; di++){
                 uint dindex = count_leading(items[di], ' ');
-                if(index == dindex){
+                if(index <= dindex){
                     continue;
                 }else{
                     break;
@@ -265,7 +265,13 @@ fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_che
                     _to_check = '.';
                     _tag = "ol";
             }
-            root.add(make_list(_tag, _items, _ordered, _to_check));
+            if(root.inner.len() > 0){ 
+                root.inner[root.inner.len()-1].add(make_list(_tag, _items, _ordered, _to_check));
+            }else {
+                HTMLComponent next = HTMLComponent{.tag = "li"};
+                next.add(make_list(_tag, _items, _ordered, _to_check));
+                root.add(next);
+            }
             i = di-1;
             continue;
         }else{
@@ -273,19 +279,16 @@ fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_che
             if(ordered){
                 assert(item[index].is_digit());
                 for(; item[index].is_digit(); index++);
-                index++;
                 assert(item[index++] == to_check);
+                index++;
                 uint z = item.len - 1 - index;
                 parse_line(&next, &(item[index..item.len-1][0]), z);
             }else{
-                console::log("Item: %s", item);
                 assert(item[index] == to_check, "Expected %c|%d got %c|%d", to_check, to_check, item[index], item[index]);
                 index++;
                 assert(item[index++] == ' ');
-                // index += 2;
-                uint z = item.len-1 - index;
+                uint z = item.len - index;
                 parse_line(&next, &(item[index..item.len-1][0]), z);
-                // next.content.append(item[index..item.len-1]);
             }
             root.add(next);
         }
