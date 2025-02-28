@@ -131,6 +131,9 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
         current.add(HTMLComponent{.tag="hr"});
         parse_start(current, buffer+4, buffer_sz-4);
     } 
+    else if (3 < buffer_sz &&  '`' == buffer[0] && '`' == buffer[1] && '`' == buffer[2]){
+        parse_code_block(current, buffer, buffer_sz);
+    }
     else if (3 < buffer_sz &&  '-' == buffer[0] && '-' == buffer[1] && '-' == buffer[2]){
         current.add(HTMLComponent{.tag="hr"});
         parse_start(current, buffer+3, buffer_sz-3);
@@ -164,6 +167,26 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
         current.make_paragraph();
         uint i =0;
         parse_text( &current.inner[current.inner.len()-1], buffer,buffer_sz, &i);
+    }
+}
+
+fn void parse_code_block(HTMLComponent* current, char* buffer, uint buffer_sz){
+    assert(buffer[0] == '`');
+    assert(buffer[1] == '`');
+    assert(buffer[2] == '`');
+    assert(buffer[3].is_space() || buffer[3].is_blank());
+    HTMLComponent pre = HTMLComponent{.tag = "pre"};
+    HTMLComponent code = HTMLComponent{.tag = "code"};
+    uint index = 4;
+    while(index+4 < buffer_sz && !('`' == buffer[index] && '`' == buffer[index+1] && '`' == buffer[index+2] && (buffer[3].is_space() || buffer[index+3].is_blank()))){
+        code.content.append_char(buffer[index++]);
+    }
+    
+    pre.add(code);
+    current.add(pre);
+
+    if(index < buffer_sz){
+        parse_start(current, buffer+index+4, buffer_sz-index+4);
     }
 }
 

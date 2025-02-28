@@ -29,7 +29,7 @@ A website about me (Eventually!)!
 | [X] | --- Horizontal Rule|
 | [X] | *** Horizontal Rule|
 | [X] | `Inline Code`|
-| [-] | ``` \`\`\`Code Block\`\`\` ```|
+| [X] | ``` \`\`\`Code Block\`\`\` ```|
 
 > [!IMPORTANT]  
 > This is still under construction! Come back another time!
