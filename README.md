@@ -27,7 +27,7 @@ A website about me (Eventually!)!
 | [X] | 1. List|
 | [X] | 1) List|
 | [X] | --- Horizontal Rule|
-| [-] | *** Horizontal Rule|
+| [X] | *** Horizontal Rule|
 | [X] | `Inline Code`|
 | [-] | ``` \`\`\`Code Block\`\`\` ```|
 

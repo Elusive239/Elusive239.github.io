@@ -125,7 +125,13 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
         parse_header(current, buffer+i, buffer_sz-i, i);
     } else if ('>' == buffer[0] && ' ' == buffer[1]){
         parse_block_quote(current, buffer+1, buffer_sz-1);
-    } else if ('-' == buffer[0] && '-' == buffer[1] && '-' == buffer[2]){
+    } 
+    else if (4 < buffer_sz && '*' == buffer[0] && '*' == buffer[1] && '*' == buffer[2] && ( buffer[3].is_blank() || buffer[3].is_space())){
+        // console::log("Line Break '*** '");
+        current.add(HTMLComponent{.tag="hr"});
+        parse_start(current, buffer+4, buffer_sz-4);
+    } 
+    else if (3 < buffer_sz &&  '-' == buffer[0] && '-' == buffer[1] && '-' == buffer[2]){
         current.add(HTMLComponent{.tag="hr"});
         parse_start(current, buffer+3, buffer_sz-3);
     } else if (('-' == buffer[0] || '*' == buffer[0] || '+' == buffer[0]) && ' ' == buffer[1] ){
