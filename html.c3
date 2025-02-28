@@ -128,17 +128,20 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
     } else if ('-' == buffer[0] && '-' == buffer[1] && '-' == buffer[2]){
         current.add(HTMLComponent{.tag="hr"});
         parse_start(current, buffer+3, buffer_sz-3);
-    } else if (('-' == buffer[0] || '*' == buffer[0]) && ' ' == buffer[1] ){
-        parse_unordered_list(current, buffer, buffer_sz, '-' == buffer[0] ? '-' : '*');
+    } else if (('-' == buffer[0] || '*' == buffer[0] || '+' == buffer[0]) && ' ' == buffer[1] ){
+        // parse_unordered_list(current, buffer, buffer_sz, '-' == buffer[0] ? '-' : '*');
+        parse_list( current, buffer, buffer_sz, false, buffer[0]);
     } 
     // Ordered List
     else if(buffer[0].is_digit()){
         uint i = 0;
         while(buffer[i].is_digit()) i++;
         if(buffer[i] == '.'){
-            parse_ordered_list(current, buffer, buffer_sz,'.');
+            // parse_ordered_list(current, buffer, buffer_sz,'.');
+            parse_list(current, buffer, buffer_sz, true, '.');
         } else if(buffer[i] == ')'){
-            parse_ordered_list(current, buffer, buffer_sz,')');
+            // parse_ordered_list(current, buffer, buffer_sz,')');
+            parse_list(current, buffer, buffer_sz, true, ')');
         }else{
             current.make_paragraph();
             i =0;
@@ -190,80 +193,111 @@ macro void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz){
     }
 }
 
-fn void parse_ordered_list(HTMLComponent* current, char* buffer, uint buffer_sz, char to_check){
-    HTMLComponent ul = HTMLComponent{.tag="ol"};
-    String t = (String) buffer[0..buffer_sz];
-    String[] arr = t.split("\n", allocator: allocator::temp());
-    uint size = 0; 
-    for(uint i = 0; i < arr.len-1; i++) size += arr[i].len + 2;
-
-    arr[arr.len-1] =  arr[arr.len-1][0..buffer_sz - size];
-    defer allocator::free(allocator::temp(), arr);
+/*
     foreach(str : arr){
+        if(arr[arr.len - 1] == str) break;
         HTMLComponent next = HTMLComponent{.tag = "li"};
         int i = 0;
+        console::log(str);
         for(; i < str.len && str[i].is_digit(); i++);
-        assert(str[i] == to_check);
-        i++;
-        if(i<str.len)next.content.appendf("%s", str[i..]);
-        // console::log("%s | %d", str[i..str.len-1], str.len-1);
-        ul.add(next);
+        switch{
+            case str[i] == '*': 
+            case str[i] == '-':             
+            case str[i] == '+': 
+            break;
+            for(uint dy = i-1; str[dy] == ' '; dy--)
+            case str[i-1].is_digit() && str[i] == '.' && str[i] != to_check:
+            case str[i-1].is_digit() && str[i] == ')' && str[i] != to_check:
+            break;
+
+            case str[i] == to_check:
+            i++;
+            if(i<str.len)next.content.appendf("%s", str[i..]);
+            // console::log("%s | %d", str[i..str.len-1], str.len-1);
+            ul.add(next);
+            break;
+        }
     }
-    // console::log("Split: %s", arr);
-    current.add(ul);
-    // console::log("output: %s", current.to_text());
+*/
+
+fn void parse_list(HTMLComponent* current, char* buffer, uint buffer_sz, bool ordered, char to_check){
+    String t = (String) buffer[0..buffer_sz];
+    String[] arr = t.split("\n", allocator: allocator::temp());
+    current.add(make_list(ordered ? "ol" : "ul", arr, ordered, to_check));
 }
 
-fn void parse_unordered_list(HTMLComponent* current, char* buffer, uint buffer_sz, char bp_check, uint indent_level = 0, uint* ci = null){
-    assert(buffer[0] == bp_check);
-    assert(buffer[1] == ' ');
-    DString needleBuilder;
-    needleBuilder.new_init();
-    defer needleBuilder.free();
-    for(int i =0;  i < indent_level; i++) needleBuilder.append_char(' ');
-    switch(bp_check){
-        case '*': 
-        case '-':             
-        case '+': 
-            needleBuilder.append_char(bp_check);
-            break;
-    }
-    needleBuilder.append_char(' ');
+fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_check){
+    HTMLComponent root = HTMLComponent{.tag = tag};
+    uint indent_level = 0;
+    for(; items[0][indent_level] == ' '; indent_level++);
 
-    String needle = needleBuilder.str_view();
-    HTMLComponent ul = HTMLComponent{.tag="ul"};
-    HTMLComponent next;
-    for(uint i = ci == null ? 0 : *ci; i < buffer_sz; i++){
-        if(i+needle.len < buffer_sz && ((String) buffer[i..i+needle.len-1] ) == needle[0..needle.len-1]){
-            
+    for(uint i = 0; i < items.len; i++){
 
-            if(next.tag != ""){
-                ul.add(next);
+        String item = items[i];
+        if(item.trim().len == 0 || item[0] == 0) break;
+        int index = count_leading(item, ' ');
+        if(index != indent_level){
+            uint di = i+1;
+            for(; di < items.len; di++){
+                uint dindex = count_leading(items[di], ' ');
+                if(index == dindex){
+                    continue;
+                }else{
+                    break;
+                }
             }
-            next = HTMLComponent{.tag="li"};
-            i+=needle.len - 1;
-            continue;
-        }
+            String _tag;
+            String[] _items = items[i..di-1];
+            bool _ordered;
+            char _to_check;
 
-        if(ci != null) {*ci = i;}
-
-        if(buffer[i] == 0){
+            uint tracking_index = count_leading(item, ' ');
+            switch{
+                case item[tracking_index] == '*':
+                case item[tracking_index] == '-':
+                case item[tracking_index] == '+':
+                    _ordered = false;
+                    _to_check = item[tracking_index];
+                    _tag = "ul";
+                case item[tracking_index].is_digit():
+                    _ordered = true;
+                    while(item[tracking_index].is_digit()) tracking_index++;
+                    _to_check = '.';
+                    _tag = "ol";
+            }
+            root.add(make_list(_tag, _items, _ordered, _to_check));
+            i = di-1;
             continue;
-        }else if (buffer[i] == '\n'){
-            return;
-        }
-        else if(buffer[i] == '*'){
-            parse_emphasis(&next, buffer, buffer_sz, &i);
-        }
-        else if(buffer[i] == '`'){
-            parse_inline_code(&next, buffer, buffer_sz, &i);
-        }
-        else{
-            next.content.append_char(buffer[i]);
+        }else{
+            HTMLComponent next = HTMLComponent{.tag = "li"};
+            if(ordered){
+                assert(item[index].is_digit());
+                for(; item[index].is_digit(); index++);
+                index++;
+                assert(item[index++] == to_check);
+                uint z = item.len - 1 - index;
+                parse_line(&next, &(item[index..item.len-1][0]), z);
+            }else{
+                console::log("Item: %s", item);
+                assert(item[index] == to_check, "Expected %c|%d got %c|%d", to_check, to_check, item[index], item[index]);
+                index++;
+                assert(item[index++] == ' ');
+                // index += 2;
+                uint z = item.len-1 - index;
+                parse_line(&next, &(item[index..item.len-1][0]), z);
+                // next.content.append(item[index..item.len-1]);
+            }
+            root.add(next);
         }
     }
-    if(next.tag != "") ul.add(next);
-    current.add(ul);
+    return root;
+}
+
+macro uint count_leading(String str, char c){
+    for(int i = 0; i < str.len; i++){
+        if(str[i] != c) return i;
+    }
+    return str.len;
 }
 
 fn void parse_text(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index){
