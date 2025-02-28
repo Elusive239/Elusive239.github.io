@@ -14,9 +14,9 @@ A website about me (Eventually!)!
 | Supported | Syntax |
 | :---------------: | :------- |
 | [X] | * *Italic* |
-| [ ] | _ *Italic* |
+| [X] | _ *Italic* |
 | [X] | ** **Bold** |
-| [ ] | __ **Bold** |
+| [X] | __ **Bold** |
 | [X] | # Headings|
 | [ ] | ==========|
 | [ ] | [Links](...)|
@@ -27,8 +27,9 @@ A website about me (Eventually!)!
 | [X] | 1. List|
 | [X] | 1) List|
 | [X] | --- Horizontal Rule|
+| [-] | *** Horizontal Rule|
 | [X] | `Inline Code`|
-| [ ] | ``` \`\`\`Code Block\`\`\` ```|
+| [-] | ``` \`\`\`Code Block\`\`\` ```|
 
 > [!IMPORTANT]  
 > This is still under construction! Come back another time!

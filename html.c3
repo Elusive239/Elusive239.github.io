@@ -181,8 +181,8 @@ macro void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz){
         }else if (buffer[i] == '\n'){
             return;
         }
-        else if(buffer[i] == '*'){
-            parse_emphasis(current, buffer, buffer_sz, &i);
+        else if(buffer[i] == '*' || buffer[i] == '_'){
+            parse_emphasis(current, buffer, buffer_sz, &i, buffer[i]);
         }
         else if(buffer[i] == '`'){
             parse_inline_code(current, buffer, buffer_sz, &i);
@@ -193,33 +193,6 @@ macro void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz){
     }
 }
 
-/*
-    foreach(str : arr){
-        if(arr[arr.len - 1] == str) break;
-        HTMLComponent next = HTMLComponent{.tag = "li"};
-        int i = 0;
-        console::log(str);
-        for(; i < str.len && str[i].is_digit(); i++);
-        switch{
-            case str[i] == '*': 
-            case str[i] == '-':             
-            case str[i] == '+': 
-            break;
-            for(uint dy = i-1; str[dy] == ' '; dy--)
-            case str[i-1].is_digit() && str[i] == '.' && str[i] != to_check:
-            case str[i-1].is_digit() && str[i] == ')' && str[i] != to_check:
-            break;
-
-            case str[i] == to_check:
-            i++;
-            if(i<str.len)next.content.appendf("%s", str[i..]);
-            // console::log("%s | %d", str[i..str.len-1], str.len-1);
-            ul.add(next);
-            break;
-        }
-    }
-*/
-
 fn void parse_list(HTMLComponent* current, char* buffer, uint buffer_sz, bool ordered, char to_check){
     String t = (String) buffer[0..buffer_sz];
     String[] arr = t.split("\n", allocator: allocator::temp());
@@ -229,7 +202,6 @@ fn void parse_list(HTMLComponent* current, char* buffer, uint buffer_sz, bool or
 fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_check){
     HTMLComponent root = HTMLComponent{.tag = tag};
     uint indent_level = 0;
-    console::log("Strings: %s", items);
     for(; items[0][indent_level] == ' '; indent_level++);
     for(uint i = 0; i < items.len; i++){
 
@@ -309,8 +281,8 @@ fn void parse_text(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i
         if(buffer[i] == 0){
             continue;
         }
-        else if(buffer[i] == '*'){
-            parse_emphasis(current, buffer, buffer_sz, &i);
+        else if(buffer[i] == '*' || buffer[i] == '_'){
+            parse_emphasis(current, buffer, buffer_sz, &i, buffer[i]);
         }else{
             current.content.append_char(buffer[i]);
         }
@@ -329,22 +301,22 @@ fn void parse_inline_code(HTMLComponent* current, char* buffer, uint buffer_sz, 
     *index = i+1;
 }
 
-fn void parse_emphasis(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index){
+fn void parse_emphasis(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index, char to_check){
     uint i = *index;
     uint starCount = 0;
-    while(buffer[i] == '*') {
+    while(buffer[i] == to_check) {
         starCount++; 
         i++;
     }
     if(starCount != 2 && starCount > 0) current.content.append("<em>");
     if(starCount >= 2) current.content.append("<strong>");
-    while(buffer[i] != '*') {
+    while(buffer[i] != to_check) {
         current.content.append_char(buffer[i]);
         i++;
     }
     if(starCount >= 2) current.content.append("</strong>");
     if(starCount != 2  && starCount > 0) current.content.append("</em>");
-    while(buffer[i] == '*') {
+    while(buffer[i] == to_check) {
         starCount--; 
         i++;
     }

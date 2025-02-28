@@ -3,8 +3,11 @@
 Come back later!  
 
 - *Hello!*
+  - _Hello!_
 - **Goodbye!**
+  - __Goodbye!__
 - ***Woot***
+  - ___Woot___
 
 ---
 > Test!
