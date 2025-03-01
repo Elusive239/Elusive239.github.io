@@ -9,16 +9,39 @@ fn uint size_of_uint() @wasm @extern("size_of_uint"){
 
 def HTMLComponentList = List(<HTMLComponent>);
 
+struct HTMLAttribute{
+    String key;
+    String value;
+    HTMLAttribute* next;
+}
+
+fn String HTMLAttribute.to_text(&self){
+    if(self == null) return "";
+
+    DString dstr;
+    defer dstr.free();
+    dstr.new_init();
+    dstr.appendf("%s=\"%s\" ", self.key, self.value);
+    
+    String tmp = self.next.to_text();
+    defer tmp.free();
+    dstr.append(tmp);
+
+    return dstr.copy_str();
+}
+
+fn void HTMLAttribute.free(&self){
+    self.next.free();
+    if(self.next == null) return;
+    allocator::free(allocator::heap(), self);
+}
+
 struct HTMLComponent{
     String tag;
+    HTMLAttribute* attributes;
     DString content;
     uint headerSize;
     HTMLComponentList inner;
-}
-
-struct HtmlDocument{
-    char* data;
-    uint size;
 }
 
 fn void HTMLComponent.add(&self, HTMLComponent component){
@@ -37,12 +60,31 @@ fn String HTMLComponent.to_text(&self){
 }
 
 fn void HTMLComponent.recursive_to_text(&self, DString* dstr){
-    dstr.appendf("<%s>",self.tag);
+    if(self.attributes) {
+        dstr.appendf("<%s class=\"md\" %s>",self.tag,self.attributes);
+    }else{
+        dstr.appendf("<%s class=\"md\">",self.tag);
+    }
     dstr.append(self.content);
     for(int i = 0; i < self.inner.len();i++ ){
         self.inner[i].recursive_to_text(dstr);
     }
     dstr.appendf("</%s>",self.tag);
+}
+
+fn void HTMLComponent.free(&comp){
+    uint size = (uint) comp.inner.len();
+    for(int i =0 ; i < size; i++){
+        comp.inner[i].free();
+    }
+    comp.content.free();
+    comp.inner.free();
+    if(comp.attributes != null) comp.attributes.free();
+}
+
+struct HtmlDocument{
+    char* data;
+    uint size;
 }
 
 fn char* to_html(char* buffer, uint buffer_sz, uint* out_size) @wasm @extern("to_html"){
@@ -56,6 +98,7 @@ fn char* to_html(char* buffer, uint buffer_sz, uint* out_size) @wasm @extern("to
 
 fn HtmlDocument stream_to_html(InStream stream){
     HTMLComponent root;
+    defer root.free();
 
     new_parse_md(&root, stream);
 

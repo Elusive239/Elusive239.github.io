@@ -19,8 +19,8 @@ A website about me (Eventually!)!
 | [X] | __ **Bold** |
 | [X] | # Headings|
 | [ ] | ==========|
-| [ ] | [Links](...)|
-| [ ] | ![Image](...)|
+| [-] | [Links](...)|
+| [-] | ![Image](...)|
 | [X] | > Blockquotes|
 | [X] | * List|
 | [X] | - List|
