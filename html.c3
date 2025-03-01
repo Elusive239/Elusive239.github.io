@@ -16,23 +16,25 @@ struct HTMLAttribute{
 }
 
 fn String HTMLAttribute.to_text(&self){
-    if(self == null) return "";
 
     DString dstr;
     defer dstr.free();
     dstr.new_init();
     dstr.appendf("%s=\"%s\" ", self.key, self.value);
     
+    if(self.next == null) return dstr.copy_str();
+    
     String tmp = self.next.to_text();
     defer tmp.free();
+    dstr.append(" ");
     dstr.append(tmp);
-
+    // console::log("%d| %s", self, dstr);
     return dstr.copy_str();
 }
 
 fn void HTMLAttribute.free(&self){
-    self.next.free();
     if(self.next == null) return;
+    self.next.free();
     allocator::free(allocator::heap(), self);
 }
 
@@ -61,10 +63,11 @@ fn String HTMLComponent.to_text(&self){
 
 fn void HTMLComponent.recursive_to_text(&self, DString* dstr){
     if(self.attributes) {
-        dstr.appendf("<%s class=\"md\" %s>",self.tag,self.attributes);
+        dstr.appendf("<%s class=\"md\" %s>",self.tag,self.attributes.to_text());
     }else{
         dstr.appendf("<%s class=\"md\">",self.tag);
     }
+    // console::log("%d|Current: %s\n", dstr, *dstr);
     dstr.append(self.content);
     for(int i = 0; i < self.inner.len();i++ ){
         self.inner[i].recursive_to_text(dstr);
@@ -148,9 +151,9 @@ fn void new_parse_md(HTMLComponent* current, InStream stream){
 }
 
 fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
-    if(buffer_sz == 0 || buffer[0] == 0) return;
-
-    if((buffer[0].is_blank() || buffer[0].is_space())){
+    // if(buffer_sz == 0 || buffer[0] == 0) return;
+    // console::log("%s", buffer[0..buffer_sz]);
+    if((buffer_sz != 0 || buffer[0] == 0 ||buffer[0].is_blank() || buffer[0].is_space())){
         // console::log("%s|%d", buffer[0..buffer_sz],buffer);
         int i = 0;
         while(i<buffer_sz && (buffer[i].is_blank() || buffer[i].is_space() || buffer[i] == 0)){
@@ -160,8 +163,11 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
         buffer_sz = buffer_sz - i;
         // console::log("%s|%d", buffer[0..buffer_sz],buffer);
     }
-
-    if('#' == buffer[0]){
+    if(buffer_sz == 0 || buffer[0] == 0) return;
+    if('!' == buffer[0] || '[' == buffer[0]){ 
+        parse_link( current, buffer, buffer_sz);
+    }
+    else if('#' == buffer[0]){
         //count '#'
         int i = 0; 
         while(buffer[i] == '#') i++;
@@ -396,6 +402,49 @@ fn void parse_emphasis(HTMLComponent* current, char* buffer, uint buffer_sz, uin
     *index = i;
 }
 
+fn void parse_link(HTMLComponent* current, char* buffer, uint buffer_sz){
+    DString link;
+    link.new_init();
+    DString text;
+    text.new_init();
+    defer{
+        link.free();
+        text.free();
+    }
+
+    int index;
+    assert('!' == buffer[0] || '[' == buffer[0], "Got '%c'", buffer[index]);
+    if('!' == buffer[index]){
+        index++;
+        assert('[' == buffer[index], "Got '%c'", buffer[index]);
+    }
+    index++;
+    int zero_index = index;
+    while(buffer[zero_index] != ']') zero_index++;
+    text.append(buffer[index..zero_index-1]);
+    index = zero_index;
+    //get contents
+    assert(']' == buffer[index], "Expected ']' Got '%c'", buffer[index]);
+    index++;
+    assert('(' == buffer[index], "Expected '(' Got '%c'", buffer[index]);
+    index++;
+    zero_index = index;
+    while(buffer[zero_index] != ')') zero_index++;
+    link.append(buffer[index..zero_index-1]);
+    index = zero_index;
+    assert(')' == buffer[index], "Expected '(' Got '%c'", buffer[index]);
+    index++;
+    if('!' == buffer[0]) {
+        current.make_image(text.str_view(), link.str_view());
+    }else {
+        current.make_link(text.str_view(), link.str_view());
+    }
+
+    // console::log("Link: |%s|\nText: |%s|", link,text);
+    parse_start(current, buffer + index, buffer_sz - index);
+    console::log("%s", current.to_text());
+}
+
 macro void HTMLComponent.make_paragraph(HTMLComponent* root){
     root.add(HTMLComponent{.tag = "p"});
 }
@@ -410,4 +459,26 @@ macro void HTMLComponent.make_header(HTMLComponent* root, uint headerSize){
         .tag = temp.copy_str(),
         .headerSize = (uint) headerSize
     });
+}
+
+// https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a
+// <a href="mailto:hege@example.com">hege@example.com</a>
+macro void HTMLComponent.make_link(HTMLComponent* root, String text, String link){
+    HTMLComponent a = HTMLComponent{.tag = "a"};
+    a.attributes = allocator::new(allocator::heap(),HTMLAttribute);
+    a.attributes.key = "href";
+    a.attributes.value = link.copy();
+    a.content.append(text.copy());
+    root.add(a);
+}
+
+macro void HTMLComponent.make_image(HTMLComponent* root, String text, String link){
+    HTMLComponent img = HTMLComponent{.tag = "img"};
+    img.attributes = allocator::new(allocator::heap(),HTMLAttribute);
+    img.attributes.key = "src";
+    img.attributes.value = link.copy();
+    img.attributes.next = allocator::new(allocator::heap(),HTMLAttribute);
+    img.attributes.next.key = "alt";
+    img.attributes.next.value = text.copy();
+    root.add(img);
 }

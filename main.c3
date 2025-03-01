@@ -2,10 +2,6 @@ module website;
 import js::console;
 import markdown;
 
-fn void main() @wasm @extern("main") @if(env::WASM_NOLIBC){
-    console::log("Hello %s!", "World");
-}
-
 fn void* malloc(uint size) @wasm @extern("malloc") @if(env::WASM_NOLIBC) {
     return allocator::malloc(allocator::heap(), size);
 }

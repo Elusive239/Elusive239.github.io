@@ -19,7 +19,7 @@ Come back later!
 1. feibauwafn 
 3. fpia80jh0eg 
 
-1. Indent 1
+1. Indent 1 
   * Hoi
   * Beep!
     * Bleep!
@@ -33,3 +33,10 @@ Come back later!
   Boiiiiiiiii!
 ```
 Blargh
+
+
+![Me! (The image I use online!)](imgs/Rakku_Guy_Kirlia.jpg)
+
+---
+
+[Rakku_Guy, the original artist of my display image!](https://x.com/Rakku_Guy)
