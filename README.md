@@ -33,7 +33,7 @@ A website about me (Eventually!)!
 | [X] | *** Horizontal Rule|
 | [X] | `Inline Code`|
 | [X] | ``` \`\`\`Code Block\`\`\` ```|
-| [X] | ``` ....Code Block ```|
+| [ ] | ``` ....Code Block ```|
 
 > [!IMPORTANT]  
 > This is still under construction! Come back another time!
