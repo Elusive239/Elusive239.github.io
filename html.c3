@@ -64,7 +64,7 @@ fn String HTMLComponent.to_text(&self){
 fn void HTMLComponent.recursive_to_text(&self, DString* dstr){
     if(self.attributes) {
         dstr.appendf("<%s class=\"md\" %s>",self.tag,self.attributes.to_text());
-    }else{
+    }else if (self.tag != "span"){
         dstr.appendf("<%s class=\"md\">",self.tag);
     }
     // console::log("%d|Current: %s\n", dstr, *dstr);
@@ -73,6 +73,10 @@ fn void HTMLComponent.recursive_to_text(&self, DString* dstr){
         self.inner[i].recursive_to_text(dstr);
     }
     dstr.appendf("</%s>",self.tag);
+}
+
+fn HTMLComponent* HTMLComponent.get_end(&self){
+    return &self.inner[self.inner.len()-1];
 }
 
 fn void HTMLComponent.free(&comp){
@@ -164,10 +168,7 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
         // console::log("%s|%d", buffer[0..buffer_sz],buffer);
     }
     if(buffer_sz == 0 || buffer[0] == 0) return;
-    if('!' == buffer[0] || '[' == buffer[0]){ 
-        parse_link( current, buffer, buffer_sz);
-    }
-    else if('#' == buffer[0]){
+    if('#' == buffer[0]){
         //count '#'
         int i = 0; 
         while(buffer[i] == '#') i++;
@@ -201,9 +202,9 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
             // parse_ordered_list(current, buffer, buffer_sz,')');
             parse_list(current, buffer, buffer_sz, true, ')');
         }else{
-            current.make_paragraph();
+            // current.make_paragraph();
             i =0;
-            parse_text( &current.inner[current.inner.len()-1], buffer,buffer_sz, &i);
+            parse_text( current, buffer,buffer_sz, &i);
         }
         // console::log("Contents: %s", buffer[0..i-1]);
     } 
@@ -213,9 +214,9 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
         // console::log("Parsed %d", i);
         parse_start(current, buffer+i, buffer_sz-i);
     } else {    
-        current.make_paragraph();
+        // current.make_paragraph();
         uint i =0;
-        parse_text( &current.inner[current.inner.len()-1], buffer,buffer_sz, &i);
+        parse_text( current, buffer,buffer_sz, &i);
     }
 }
 
@@ -241,23 +242,25 @@ fn void parse_code_block(HTMLComponent* current, char* buffer, uint buffer_sz){
 
 fn void parse_block_quote(HTMLComponent* current, char* buffer, uint buffer_sz){
     current.add(HTMLComponent{.tag="blockquote"});
-    HTMLComponent* next_comp = &current.inner[current.inner.len()-1];
+    HTMLComponent* next_comp = current.get_end();
     parse_line(next_comp, buffer, buffer_sz);
 }
 
 fn void parse_header(HTMLComponent* current, char* buffer, uint buffer_sz, uint hash_count){
     current.make_header(hash_count);
-    HTMLComponent* next_comp = &current.inner[current.inner.len()-1];
+    HTMLComponent* next_comp = current.get_end();
     parse_line(next_comp, buffer, buffer_sz);
 }
 
-macro void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz){
+fn void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz){
     
     for(uint i = 0; i < buffer_sz; i++){
         if(buffer[i] == 0){
             continue;
         }else if (buffer[i] == '\n'){
             return;
+        }else if(('!' == buffer[i] && '[' == buffer[i+1]) || '[' == buffer[i]){ 
+            parse_link( current, buffer, buffer_sz, &i);
         }
         else if(buffer[i] == '*' || buffer[i] == '_'){
             parse_emphasis(current, buffer, buffer_sz, &i, buffer[i]);
@@ -316,7 +319,7 @@ fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_che
                     _tag = "ol";
             }
             if(root.inner.len() > 0){ 
-                root.inner[root.inner.len()-1].add(make_list(_tag, _items, _ordered, _to_check));
+                root.get_end().add(make_list(_tag, _items, _ordered, _to_check));
             }else {
                 HTMLComponent next = HTMLComponent{.tag = "li"};
                 next.add(make_list(_tag, _items, _ordered, _to_check));
@@ -354,15 +357,22 @@ macro uint count_leading(String str, char c){
 }
 
 fn void parse_text(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index){
+    current.make_paragraph();
+    HTMLComponent* root = current.get_end();
+    root.make_span();
     uint i = *index;
     for(; i < buffer_sz; i++){
         if(buffer[i] == 0){
             continue;
+        }else if(('!' == buffer[i] && '[' == buffer[i+1]) || '[' == buffer[i]){ 
+            parse_link( root, buffer, buffer_sz, &i);
+            root.make_span();
         }
         else if(buffer[i] == '*' || buffer[i] == '_'){
-            parse_emphasis(current, buffer, buffer_sz, &i, buffer[i]);
+            parse_emphasis(root, buffer, buffer_sz, &i, buffer[i]);
+            root.make_span();
         }else{
-            current.content.append_char(buffer[i]);
+            root.get_end().content.append_char(buffer[i]);
         }
     }
     *index = i;
@@ -372,7 +382,7 @@ fn void parse_inline_code(HTMLComponent* current, char* buffer, uint buffer_sz, 
     assert(buffer[*index] == '`');
     uint i = (*index)+1;
     current.add(HTMLComponent{.tag="code"});
-    HTMLComponent* next_comp = &current.inner[current.inner.len()-1];
+    HTMLComponent* next_comp = current.get_end();
     while(i < buffer_sz && buffer[i] != '`'){
         next_comp.content.append_char(buffer[i++]);
     }
@@ -380,29 +390,35 @@ fn void parse_inline_code(HTMLComponent* current, char* buffer, uint buffer_sz, 
 }
 
 fn void parse_emphasis(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index, char to_check){
+    HTMLComponent* root = current;
     uint i = *index;
     uint starCount = 0;
     while(buffer[i] == to_check) {
         starCount++; 
         i++;
     }
-    if(starCount != 2 && starCount > 0) current.content.append("<em>");
-    if(starCount >= 2) current.content.append("<strong>");
+
+    if(starCount != 2 && starCount > 0) {
+        root.add(HTMLComponent{.tag="em"});
+        root = root.get_end();
+    }
+    if(starCount >= 2) {
+        root.add(HTMLComponent{.tag="strong"});
+        root = root.get_end();
+    }
     while(buffer[i] != to_check) {
-        current.content.append_char(buffer[i]);
+        root.content.append_char(buffer[i]);
         i++;
     }
-    if(starCount >= 2) current.content.append("</strong>");
-    if(starCount != 2  && starCount > 0) current.content.append("</em>");
     while(buffer[i] == to_check) {
         starCount--; 
         i++;
     }
     assert(starCount == 0);
-    *index = i;
+    *index = i-1;
 }
 
-fn void parse_link(HTMLComponent* current, char* buffer, uint buffer_sz){
+fn void parse_link(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i){
     DString link;
     link.new_init();
     DString text;
@@ -412,8 +428,8 @@ fn void parse_link(HTMLComponent* current, char* buffer, uint buffer_sz){
         text.free();
     }
 
-    int index;
-    assert('!' == buffer[0] || '[' == buffer[0], "Got '%c'", buffer[index]);
+    int index = *i;
+    assert('!' == buffer[index] || '[' == buffer[index], "Got '%c'", buffer[index]);
     if('!' == buffer[index]){
         index++;
         assert('[' == buffer[index], "Got '%c'", buffer[index]);
@@ -441,8 +457,9 @@ fn void parse_link(HTMLComponent* current, char* buffer, uint buffer_sz){
     }
 
     // console::log("Link: |%s|\nText: |%s|", link,text);
-    parse_start(current, buffer + index, buffer_sz - index);
-    console::log("%s", current.to_text());
+    // parse_start(current, buffer + index, buffer_sz - index);
+    *i = index;
+    // console::log("%s", current.to_text());
 }
 
 macro void HTMLComponent.make_paragraph(HTMLComponent* root){
@@ -481,4 +498,9 @@ macro void HTMLComponent.make_image(HTMLComponent* root, String text, String lin
     img.attributes.next.key = "alt";
     img.attributes.next.value = text.copy();
     root.add(img);
+}
+
+macro void HTMLComponent.make_span(HTMLComponent* root){
+    HTMLComponent span = HTMLComponent{.tag = "span"};
+    root.add(span);
 }
