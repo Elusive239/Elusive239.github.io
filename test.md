@@ -41,7 +41,7 @@ Blargh
 
 [Rakku_Guy, the original artist of my display image!](https://x.com/Rakku_Guy)
 
-This *is* a set of __mixed__ text using a bunch of the different syntaxes. `We` love it here! Here is a link to
+This *is* a set of __mixed__ text (using) a bunch of the different syntaxes. `We` love it here! Here is a link to
 Some music thats [Pretty good!](https://youtu.be/kK0KPuH32mc?si=y8zUORpnfY0DiWJg). I'll use this to find ***Problems...***
 
 ## The following Garbage has been written by ChatGPT:  

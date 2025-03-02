@@ -19,8 +19,11 @@ A website about me (Eventually!)!
 | [X] | __ **Bold** |
 | [X] | # Headings|
 | [ ] | ==========|
-| [-] | [Links](...)|
-| [-] | ![Image](...)|
+| [ ] | ----------|
+| [X] | [Links](...)|
+| [X] | ![Image](...)|
+| [ ] | [Links][...]|
+| [ ] | ![Image][...]|
 | [X] | > Blockquotes|
 | [X] | * List|
 | [X] | - List|
@@ -30,6 +33,7 @@ A website about me (Eventually!)!
 | [X] | *** Horizontal Rule|
 | [X] | `Inline Code`|
 | [X] | ``` \`\`\`Code Block\`\`\` ```|
+| [X] | ``` ....Code Block ```|
 
 > [!IMPORTANT]  
 > This is still under construction! Come back another time!

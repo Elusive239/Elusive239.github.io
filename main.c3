@@ -1,16 +1,40 @@
+module main @if(!env::WASM_NOLIBC);
+import noirdown;
+import std::io;
+import std::io::file;
+fn void main(){
+    HtmlDocument doc = noirdown::file_to_html("./test.md")!!;
+    file::save("testOut.html", doc.data[:doc.size])!!;
+}
+
 module website;
 import js::console;
-import markdown;
+import std::io;
+import noirdown;
 
-fn void* malloc(uint size) @wasm @extern("malloc") @if(env::WASM_NOLIBC) {
+
+fn char* wasm_to_html(char* buffer, uint buffer_sz, uint* out_size) @wasm @extern("wasm_to_html") @if(env::WASM_NOLIBC){
+    ByteReader byteBuffer;
+    byteBuffer.init(buffer[0..buffer_sz]);
+    
+    HtmlDocument doc = noirdown::stream_to_html(&byteBuffer);
+    *out_size = doc.size;
+    return doc.data;
+}
+
+fn uint size_of_uint() @wasm @extern("size_of_uint") @if(env::WASM_NOLIBC){ //helper function for JS side...
+    return uint.sizeof;
+}
+
+fn void* wasm_malloc(uint size) @wasm @extern("wasm_malloc") @if(env::WASM_NOLIBC) {
     return allocator::malloc(allocator::heap(), size);
 }
 
-fn void set(char* buffer, uint index, char value) @wasm @extern("set") @if(env::WASM_NOLIBC) {
+fn void wasm_set(char* buffer, uint index, char value) @wasm @extern("wasm_set") @if(env::WASM_NOLIBC) {
     buffer[index] = value;
 }
 
-fn void free(void* data) @wasm @extern("free") @if(env::WASM_NOLIBC) {
+fn void wasm_free(void* data) @wasm @extern("wasm_free") @if(env::WASM_NOLIBC) {
     allocator::free(allocator::heap(), data);
 }
 

@@ -44,22 +44,22 @@ class MarkDown extends HTMLElement{
             let buffer = text;
             buffer = buffer.trim();
             const bufferLen = buffer.length;
-            const wasmStr = wasm.malloc(bufferLen * 8); //buffer size of textContent, to pass textContent to WASM.
+            const wasmStr = wasm.wasm_malloc(bufferLen * 8); //buffer size of textContent, to pass textContent to WASM.
             for(let i = 0; i < bufferLen; i++){
-                wasm.set(wasmStr, i, buffer[i].charCodeAt(0));
+                wasm.wasm_set(wasmStr, i, buffer[i].charCodeAt(0));
             }
             // console.log("%d", wasm.size_of_usz());
-            const wSize = wasm.malloc(wasm.size_of_uint()); //1 int ptr
-            const outPtr = wasm.to_html(wasmStr, bufferLen, wSize);
+            const wSize = wasm.wasm_malloc(wasm.size_of_uint()); //1 int ptr
+            const outPtr = wasm.wasm_to_html(wasmStr, bufferLen, wSize);
             const outSize = new Uint32Array(wasm.memory.buffer, wSize, 1);
             const outText = new TextDecoder().decode(new Uint8ClampedArray(wasm.memory.buffer, outPtr, outSize[0]));
             // console.log("OutText: ", outText);
             // console.log("OutText as Array : ", Array.from(outText));
             // console.log("Size: ", Array.from(outSize));
             div.innerHTML = outText;
-            wasm.free(wasmStr);
-            wasm.free(wSize);
-            wasm.free(outPtr);
+            wasm.wasm_free(wasmStr);
+            wasm.wasm_free(wSize);
+            wasm.wasm_free(outPtr);
         });
     }
 }

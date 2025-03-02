@@ -1,10 +1,19 @@
-module html;
+module noirdown;
 import std::io;
 import std::collections;
 import js::console;
 
-fn uint size_of_uint() @wasm @extern("size_of_uint"){
-    return uint.sizeof;
+struct HtmlDocument{
+    char* data;
+    uint size;
+}
+
+struct HTMLComponent{
+    String tag;
+    HTMLAttribute* attributes;
+    DString content;
+    uint headerSize;
+    HTMLComponentList inner;
 }
 
 def HTMLComponentList = List(<HTMLComponent>);
@@ -28,7 +37,6 @@ fn String HTMLAttribute.to_text(&self){
     defer tmp.free();
     dstr.append(" ");
     dstr.append(tmp);
-    // console::log("%d| %s", self, dstr);
     return dstr.copy_str();
 }
 
@@ -36,14 +44,6 @@ fn void HTMLAttribute.free(&self){
     if(self.next == null) return;
     self.next.free();
     allocator::free(allocator::heap(), self);
-}
-
-struct HTMLComponent{
-    String tag;
-    HTMLAttribute* attributes;
-    DString content;
-    uint headerSize;
-    HTMLComponentList inner;
 }
 
 fn void HTMLComponent.add(&self, HTMLComponent component){
@@ -67,7 +67,6 @@ fn void HTMLComponent.recursive_to_text(&self, DString* dstr){
     }else if (self.tag != "span"){
         dstr.appendf("<%s class=\"md\">",self.tag);
     }
-    // console::log("%d|Current: %s\n", dstr, *dstr);
     dstr.append(self.content);
     for(int i = 0; i < self.inner.len();i++ ){
         self.inner[i].recursive_to_text(dstr);
@@ -89,32 +88,37 @@ fn void HTMLComponent.free(&comp){
     if(comp.attributes != null) comp.attributes.free();
 }
 
-struct HtmlDocument{
-    char* data;
-    uint size;
+fn HtmlDocument! string_to_html(String text){
+    ByteReader br = io::wrap_bytes(text);
+    HtmlDocument doc = stream_to_html(&br);
+    return doc;
 }
 
-fn char* to_html(char* buffer, uint buffer_sz, uint* out_size) @wasm @extern("to_html"){
-    ByteReader byteBuffer;
-    byteBuffer.init(buffer[0..buffer_sz]);
-    
-    HtmlDocument doc = stream_to_html(&byteBuffer);// md_stream_to_html(&byteBuffer);
-    *out_size = doc.size;
-    return doc.data;
+fn HtmlDocument! file_to_html(String file_path){
+    File file = file::open(file_path, "rb")!;
+    defer file.close()!!;
+    usz len = file.seek(0, END)!;
+	file.seek(0, SET)!;
+    char[] buffer = allocator::new_array(allocator::heap(), char, len);
+    file.read(buffer)!;
+    ByteReader br = io::wrap_bytes(buffer);
+    HtmlDocument doc = stream_to_html(&br);
+    return doc;
 }
 
 fn HtmlDocument stream_to_html(InStream stream){
     HTMLComponent root;
     defer root.free();
-
-    new_parse_md(&root, stream);
-
-    String out = root.to_text();
-    // defer out.free();
     HtmlDocument doc;
-    doc.data = allocator::new_array(allocator::heap(),char, out.len);
-    doc.data[0..out.len-1] = out[0..out.len-1];
-    doc.size = out.len;
+    @pool(){
+        new_parse_md(&root, stream);
+        String out = root.to_text();
+        defer out.free();
+        if(out.len == 0) return doc;
+        doc.data = allocator::new_array(allocator::heap(),char, out.len);
+        doc.data[0..out.len-1] = out[0..out.len-1];
+        doc.size = out.len;
+    };
     return doc;
 }
 
@@ -132,44 +136,36 @@ fn void new_parse_md(HTMLComponent* current, InStream stream){
     do{
         uint index = 0;
         {
-            while(stream.available()!!){
+            while(index < buffer.len && stream.available()!!){
                 char! next = stream.read_byte();
                 if(catch next){
                     break;
                 } else if (next == '\r'){
                     continue;
                 } else if (index -1 > 0 && buffer[index-1] == next && next == '\n'){
-                    // console::log("DOUBLE LINE FEED");
                     break;
                 }else{
                     buffer[index++] = next;
                 }
             }
-            // console::log("BUFFER: %s", buffer);
         }
 
         parse_start(current, &(buffer[0]), index);
         buffer[0..(buffer.len-1)] = 0;
     }while(stream.available()!!);
-    // console::log("output: %s", current.to_text());
 }
 
 fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
-    // if(buffer_sz == 0 || buffer[0] == 0) return;
-    // console::log("%s", buffer[0..buffer_sz]);
     if((buffer_sz != 0 || buffer[0] == 0 ||buffer[0].is_blank() || buffer[0].is_space())){
-        // console::log("%s|%d", buffer[0..buffer_sz],buffer);
         int i = 0;
         while(i<buffer_sz && (buffer[i].is_blank() || buffer[i].is_space() || buffer[i] == 0)){
             i++;
         }
         buffer = buffer+i;
         buffer_sz = buffer_sz - i;
-        // console::log("%s|%d", buffer[0..buffer_sz],buffer);
     }
     if(buffer_sz == 0 || buffer[0] == 0) return;
     if('#' == buffer[0]){
-        //count '#'
         int i = 0; 
         while(buffer[i] == '#') i++;
         parse_header(current, buffer+i, buffer_sz-i, i);
@@ -177,7 +173,6 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
         parse_block_quote(current, buffer+1, buffer_sz-1);
     } 
     else if (4 < buffer_sz && '*' == buffer[0] && '*' == buffer[1] && '*' == buffer[2] && ( buffer[3].is_blank() || buffer[3].is_space())){
-        // console::log("Line Break '*** '");
         current.add(HTMLComponent{.tag="hr"});
         parse_start(current, buffer+4, buffer_sz-4);
     } 
@@ -188,33 +183,25 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
         current.add(HTMLComponent{.tag="hr"});
         parse_start(current, buffer+3, buffer_sz-3);
     } else if (('-' == buffer[0] || '*' == buffer[0] || '+' == buffer[0]) && ' ' == buffer[1] ){
-        // parse_unordered_list(current, buffer, buffer_sz, '-' == buffer[0] ? '-' : '*');
         parse_list( current, buffer, buffer_sz, false, buffer[0]);
     } 
-    // Ordered List
     else if(buffer[0].is_digit()){
         uint i = 0;
         while(buffer[i].is_digit()) i++;
         if(buffer[i] == '.'){
-            // parse_ordered_list(current, buffer, buffer_sz,'.');
             parse_list(current, buffer, buffer_sz, true, '.');
         } else if(buffer[i] == ')'){
-            // parse_ordered_list(current, buffer, buffer_sz,')');
             parse_list(current, buffer, buffer_sz, true, ')');
         }else{
-            // current.make_paragraph();
             i =0;
             parse_text( current, buffer,buffer_sz, &i);
         }
-        // console::log("Contents: %s", buffer[0..i-1]);
     } 
     else if('`' == buffer[0]){
         uint i;
         parse_inline_code(current, buffer, buffer_sz, &i);
-        // console::log("Parsed %d", i);
         parse_start(current, buffer+i, buffer_sz-i);
     } else {    
-        // current.make_paragraph();
         uint i =0;
         parse_text( current, buffer,buffer_sz, &i);
     }
@@ -439,7 +426,6 @@ fn void parse_link(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i
     while(buffer[zero_index] != ']') zero_index++;
     text.append(buffer[index..zero_index-1]);
     index = zero_index;
-    //get contents
     assert(']' == buffer[index], "Expected ']' Got '%c'", buffer[index]);
     index++;
     assert('(' == buffer[index], "Expected '(' Got '%c'", buffer[index]);
@@ -448,18 +434,13 @@ fn void parse_link(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i
     while(buffer[zero_index] != ')') zero_index++;
     link.append(buffer[index..zero_index-1]);
     index = zero_index;
-    assert(')' == buffer[index], "Expected '(' Got '%c'", buffer[index]);
-    index++;
+    assert(')' == buffer[index], "Expected ')' Got '%c'", buffer[index]);
     if('!' == buffer[0]) {
         current.make_image(text.str_view(), link.str_view());
     }else {
         current.make_link(text.str_view(), link.str_view());
     }
-
-    // console::log("Link: |%s|\nText: |%s|", link,text);
-    // parse_start(current, buffer + index, buffer_sz - index);
     *i = index;
-    // console::log("%s", current.to_text());
 }
 
 macro void HTMLComponent.make_paragraph(HTMLComponent* root){
@@ -484,8 +465,8 @@ macro void HTMLComponent.make_link(HTMLComponent* root, String text, String link
     HTMLComponent a = HTMLComponent{.tag = "a"};
     a.attributes = allocator::new(allocator::heap(),HTMLAttribute);
     a.attributes.key = "href";
-    a.attributes.value = link.copy();
-    a.content.append(text.copy());
+    a.attributes.value = link.tcopy();
+    a.content.append(text.tcopy());
     root.add(a);
 }
 
@@ -493,10 +474,10 @@ macro void HTMLComponent.make_image(HTMLComponent* root, String text, String lin
     HTMLComponent img = HTMLComponent{.tag = "img"};
     img.attributes = allocator::new(allocator::heap(),HTMLAttribute);
     img.attributes.key = "src";
-    img.attributes.value = link.copy();
+    img.attributes.value = link.tcopy();
     img.attributes.next = allocator::new(allocator::heap(),HTMLAttribute);
     img.attributes.next.key = "alt";
-    img.attributes.next.value = text.copy();
+    img.attributes.next.value = text.tcopy();
     root.add(img);
 }
 
