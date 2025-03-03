@@ -24,6 +24,13 @@ struct HTMLAttribute{
     HTMLAttribute* next;
 }
 
+struct LinkAlias{
+    HTMLComponent* component;
+    String alias;
+}
+
+def AliasList = List(<LinkAlias>);
+
 fn String HTMLAttribute.to_text(&self){
 
     DString dstr;
@@ -132,6 +139,9 @@ fn HtmlDocument stream_to_html(InStream stream){
  6. Combine everything into a single HTML document.
 */
 fn void new_parse_md(HTMLComponent* current, InStream stream){
+    AliasList links;
+    links.new_init();
+    defer links.free();
     char[1024*2] buffer;
     do{
         uint index = 0;
@@ -150,12 +160,12 @@ fn void new_parse_md(HTMLComponent* current, InStream stream){
             }
         }
 
-        parse_start(current, &(buffer[0]), index);
+        parse_start(current, &(buffer[0]), index, &links);
         buffer[0..(buffer.len-1)] = 0;
     }while(stream.available()!!);
 }
 
-fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
+fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz, AliasList* links){
     if((buffer_sz != 0 || buffer[0] == 0 ||buffer[0].is_blank() || buffer[0].is_space())){
         int i = 0;
         while(i<buffer_sz && (buffer[i].is_blank() || buffer[i].is_space() || buffer[i] == 0)){
@@ -168,46 +178,46 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz){
     if('#' == buffer[0]){
         int i = 0; 
         while(buffer[i] == '#') i++;
-        parse_header(current, buffer+i, buffer_sz-i, i);
+        parse_header(current, buffer+i, buffer_sz-i, i, links);
     } else if ('>' == buffer[0] && ' ' == buffer[1]){
-        parse_block_quote(current, buffer+1, buffer_sz-1);
+        parse_block_quote(current, buffer+1, buffer_sz-1, links);
     } 
     else if (4 < buffer_sz && '*' == buffer[0] && '*' == buffer[1] && '*' == buffer[2] && ( buffer[3].is_blank() || buffer[3].is_space())){
         current.add(HTMLComponent{.tag="hr"});
-        parse_start(current, buffer+4, buffer_sz-4);
+        parse_start(current, buffer+4, buffer_sz-4, links);
     } 
     else if (3 < buffer_sz &&  '`' == buffer[0] && '`' == buffer[1] && '`' == buffer[2]){
-        parse_code_block(current, buffer, buffer_sz);
+        parse_code_block(current, buffer, buffer_sz, links);
     }
     else if (3 < buffer_sz &&  '-' == buffer[0] && '-' == buffer[1] && '-' == buffer[2]){
         current.add(HTMLComponent{.tag="hr"});
-        parse_start(current, buffer+3, buffer_sz-3);
+        parse_start(current, buffer+3, buffer_sz-3, links);
     } else if (('-' == buffer[0] || '*' == buffer[0] || '+' == buffer[0]) && ' ' == buffer[1] ){
-        parse_list( current, buffer, buffer_sz, false, buffer[0]);
+        parse_list( current, buffer, buffer_sz, false, buffer[0], links);
     } 
     else if(buffer[0].is_digit()){
         uint i = 0;
         while(buffer[i].is_digit()) i++;
         if(buffer[i] == '.'){
-            parse_list(current, buffer, buffer_sz, true, '.');
+            parse_list(current, buffer, buffer_sz, true, '.', links);
         } else if(buffer[i] == ')'){
-            parse_list(current, buffer, buffer_sz, true, ')');
+            parse_list(current, buffer, buffer_sz, true, ')', links);
         }else{
             i =0;
-            parse_text( current, buffer,buffer_sz, &i);
+            parse_text( current, buffer,buffer_sz, &i, links);
         }
     } 
     else if('`' == buffer[0]){
         uint i;
         parse_inline_code(current, buffer, buffer_sz, &i);
-        parse_start(current, buffer+i, buffer_sz-i);
+        parse_start(current, buffer+i, buffer_sz-i, links);
     } else {    
         uint i =0;
-        parse_text( current, buffer,buffer_sz, &i);
+        parse_text( current, buffer,buffer_sz, &i, links);
     }
 }
 
-fn void parse_code_block(HTMLComponent* current, char* buffer, uint buffer_sz){
+fn void parse_code_block(HTMLComponent* current, char* buffer, uint buffer_sz, AliasList* links){
     assert(buffer[0] == '`');
     assert(buffer[1] == '`');
     assert(buffer[2] == '`');
@@ -223,23 +233,23 @@ fn void parse_code_block(HTMLComponent* current, char* buffer, uint buffer_sz){
     current.add(pre);
 
     if(index < buffer_sz){
-        parse_start(current, buffer+index+4, buffer_sz-index+4);
+        parse_start(current, buffer+index+4, buffer_sz-index+4, links);
     }
 }
 
-fn void parse_block_quote(HTMLComponent* current, char* buffer, uint buffer_sz){
+fn void parse_block_quote(HTMLComponent* current, char* buffer, uint buffer_sz, AliasList* links){
     current.add(HTMLComponent{.tag="blockquote"});
     HTMLComponent* next_comp = current.get_end();
-    parse_line(next_comp, buffer, buffer_sz);
+    parse_line(next_comp, buffer, buffer_sz, links);
 }
 
-fn void parse_header(HTMLComponent* current, char* buffer, uint buffer_sz, uint hash_count){
+fn void parse_header(HTMLComponent* current, char* buffer, uint buffer_sz, uint hash_count, AliasList* links){
     current.make_header(hash_count);
     HTMLComponent* next_comp = current.get_end();
-    parse_line(next_comp, buffer, buffer_sz);
+    parse_line(next_comp, buffer, buffer_sz, links);
 }
 
-fn void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz){
+fn void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz, AliasList* links){
     
     for(uint i = 0; i < buffer_sz; i++){
         if(buffer[i] == 0){
@@ -247,7 +257,7 @@ fn void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz){
         }else if (buffer[i] == '\n'){
             return;
         }else if(('!' == buffer[i] && '[' == buffer[i+1]) || '[' == buffer[i]){ 
-            parse_link( current, buffer, buffer_sz, &i);
+            parse_link( current, buffer, buffer_sz, &i, links);
         }
         else if(buffer[i] == '*' || buffer[i] == '_'){
             parse_emphasis(current, buffer, buffer_sz, &i, buffer[i]);
@@ -261,13 +271,13 @@ fn void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz){
     }
 }
 
-fn void parse_list(HTMLComponent* current, char* buffer, uint buffer_sz, bool ordered, char to_check){
+fn void parse_list(HTMLComponent* current, char* buffer, uint buffer_sz, bool ordered, char to_check, AliasList* links){
     String t = (String) buffer[0..buffer_sz];
     String[] arr = t.split("\n", allocator: allocator::temp());
-    current.add(make_list(ordered ? "ol" : "ul", arr, ordered, to_check));
+    current.add(make_list(ordered ? "ol" : "ul", arr, ordered, to_check, links));
 }
 
-fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_check){
+fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_check, AliasList* links){
     HTMLComponent root = HTMLComponent{.tag = tag};
     uint indent_level = 0;
     for(; items[0][indent_level] == ' '; indent_level++);
@@ -306,10 +316,10 @@ fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_che
                     _tag = "ol";
             }
             if(root.inner.len() > 0){ 
-                root.get_end().add(make_list(_tag, _items, _ordered, _to_check));
+                root.get_end().add(make_list(_tag, _items, _ordered, _to_check, links));
             }else {
                 HTMLComponent next = HTMLComponent{.tag = "li"};
-                next.add(make_list(_tag, _items, _ordered, _to_check));
+                next.add(make_list(_tag, _items, _ordered, _to_check, links));
                 root.add(next);
             }
             i = di-1;
@@ -322,13 +332,13 @@ fn HTMLComponent make_list(String tag, String[] items, bool ordered, char to_che
                 assert(item[index++] == to_check);
                 index++;
                 uint z = item.len - 1 - index;
-                parse_line(&next, &(item[index..item.len-1][0]), z);
+                parse_line(&next, &(item[index..item.len-1][0]), z, links);
             }else{
                 assert(item[index] == to_check, "Expected %c|%d got %c|%d", to_check, to_check, item[index], item[index]);
                 index++;
                 assert(item[index++] == ' ');
                 uint z = item.len - index;
-                parse_line(&next, &(item[index..item.len-1][0]), z);
+                parse_line(&next, &(item[index..item.len-1][0]), z, links);
             }
             root.add(next);
         }
@@ -343,7 +353,7 @@ macro uint count_leading(String str, char c){
     return str.len;
 }
 
-fn void parse_text(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index){
+fn void parse_text(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index, AliasList* links){
     current.make_paragraph();
     HTMLComponent* root = current.get_end();
     root.make_span();
@@ -352,7 +362,7 @@ fn void parse_text(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i
         if(buffer[i] == 0){
             continue;
         }else if(('!' == buffer[i] && '[' == buffer[i+1]) || '[' == buffer[i]){ 
-            parse_link( root, buffer, buffer_sz, &i);
+            parse_link( root, buffer, buffer_sz, &i, links);
             root.make_span();
         }
         else if(buffer[i] == '*' || buffer[i] == '_'){
@@ -405,7 +415,7 @@ fn void parse_emphasis(HTMLComponent* current, char* buffer, uint buffer_sz, uin
     *index = i-1;
 }
 
-fn void parse_link(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i){
+fn void parse_link(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i, AliasList* links){
     DString link;
     link.new_init();
     DString text;
@@ -428,17 +438,45 @@ fn void parse_link(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i
     index = zero_index;
     assert(']' == buffer[index], "Expected ']' Got '%c'", buffer[index]);
     index++;
-    assert('(' == buffer[index], "Expected '(' Got '%c'", buffer[index]);
-    index++;
-    zero_index = index;
-    while(buffer[zero_index] != ')') zero_index++;
-    link.append(buffer[index..zero_index-1]);
-    index = zero_index;
-    assert(')' == buffer[index], "Expected ')' Got '%c'", buffer[index]);
-    if('!' == buffer[0]) {
-        current.make_image(text.str_view(), link.str_view());
-    }else {
-        current.make_link(text.str_view(), link.str_view());
+
+    // assert('(' == buffer[index] || '[' == buffer[index] || ':' == buffer[index], "Incorrectly Got '%c' | Text: %s | Link: %s", buffer[index], text, link);
+    zero_index = index+1;
+    switch(buffer[index++]){
+        case '(':
+            while(buffer[zero_index] != ')') zero_index++;
+            link.append(buffer[index..zero_index-1]);
+            index = zero_index;
+            assert(')' == buffer[index], "Expected ')' Got '%c'", buffer[index]);
+            if('!' == buffer[0]) {
+                current.make_image(text.str_view(), link.str_view());
+            }else {
+                current.make_link(text.str_view(), link.str_view());
+            }
+        case '[':
+            while(buffer[zero_index] != ']') zero_index++;
+            link.append(buffer[index..zero_index-1]);
+            index = zero_index;
+            if('!' == buffer[0]) {
+                current.make_image(text.str_view(), "");
+            }else {
+                current.make_link(text.str_view(), "");
+            }
+            links.push(LinkAlias{.component = current.get_end(), .alias = link.str_view().copy()});
+        case ':':
+            while(zero_index < buffer_sz && (buffer[zero_index] != '\n' && buffer[zero_index] != 0)) zero_index++;
+            link.append(buffer[index..zero_index-1]);
+            index = zero_index;
+
+            if(links.len() == 0) break;
+
+            foreach(&alias : *links){
+                if(alias.alias == text.str_view()){
+                    alias.component.attributes.value = link.str_view().trim().copy();
+                }
+            }
+        default: 
+            break;
+        // unreachable("Something is seriously wrong...");
     }
     *i = index;
 }

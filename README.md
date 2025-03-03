@@ -22,8 +22,8 @@ A website about me (Eventually!)!
 | [ ] | ----------|
 | [X] | [Links](...)|
 | [X] | ![Image](...)|
-| [ ] | [Links][...]|
-| [ ] | ![Image][...]|
+| [X] | [Links][...]|
+| [X] | ![Image][...]|
 | [X] | > Blockquotes|
 | [X] | * List|
 | [X] | - List|

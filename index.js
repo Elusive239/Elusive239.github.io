@@ -30,8 +30,8 @@ class MarkDown extends HTMLElement{
     constructor(){
         super();
         const shadowRoot = this.attachShadow({mode: 'closed'});
-        let div = document.createElement('div');
-        shadowRoot.append(div);
+        let article = document.createElement('article');
+        shadowRoot.append(article);
         const fname = this.getAttribute("src") || undefined;
         if(fname === undefined ){
             console.error("'src' attribute never defined!");
@@ -56,7 +56,7 @@ class MarkDown extends HTMLElement{
             // console.log("OutText: ", outText);
             // console.log("OutText as Array : ", Array.from(outText));
             // console.log("Size: ", Array.from(outSize));
-            div.innerHTML = outText;
+            article.innerHTML = outText;
             wasm.wasm_free(wasmStr);
             wasm.wasm_free(wSize);
             wasm.wasm_free(outPtr);
