@@ -62,16 +62,21 @@ AI, while **widely hyped** as a *revolutionary* technology, often falls short of
 Code Block A
 ```
 
+`Text 2!`
+
 
     Code Block B!
     Uhoh wait this wont work...
-    
+  
     dwa
-    
-    
-    
-    
-    
-    
-    
+  
+  
+  
+  
+  
     dwano
+
+
+wdfa
+
+`Text!`

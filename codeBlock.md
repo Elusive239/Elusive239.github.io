@@ -17,3 +17,7 @@ Code Block A
     dwano
 
 Yes!
+
+`Inline Code!`
+
+Blargh!
