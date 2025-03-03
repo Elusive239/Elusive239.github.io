@@ -57,3 +57,21 @@ AI, while **widely hyped** as a *revolutionary* technology, often falls short of
 
 [word]: https://www.wikipedia.org/
 [kirlia]: imgs/Rakku_Guy_Kirlia.jpg
+
+```
+Code Block A
+```
+
+
+    Code Block B!
+    Uhoh wait this wont work...
+    
+    dwa
+    
+    
+    
+    
+    
+    
+    
+    dwano

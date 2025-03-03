@@ -166,7 +166,7 @@ fn void new_parse_md(HTMLComponent* current, InStream stream){
 }
 
 fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz, AliasList* links){
-    if((buffer_sz != 0 || buffer[0] == 0 ||buffer[0].is_blank() || buffer[0].is_space())){
+    if((buffer_sz != 0 && (buffer[0] == 0 ||buffer[0].is_blank() || buffer[0].is_space()))){
         int i = 0;
         while(i<buffer_sz && (buffer[i].is_blank() || buffer[i].is_space() || buffer[i] == 0)){
             i++;
@@ -186,9 +186,6 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz, AliasL
         current.add(HTMLComponent{.tag="hr"});
         parse_start(current, buffer+4, buffer_sz-4, links);
     } 
-    else if (3 < buffer_sz &&  '`' == buffer[0] && '`' == buffer[1] && '`' == buffer[2]){
-        parse_code_block(current, buffer, buffer_sz, links);
-    }
     else if (3 < buffer_sz &&  '-' == buffer[0] && '-' == buffer[1] && '-' == buffer[2]){
         current.add(HTMLComponent{.tag="hr"});
         parse_start(current, buffer+3, buffer_sz-3, links);
@@ -207,34 +204,36 @@ fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz, AliasL
             parse_text( current, buffer,buffer_sz, &i, links);
         }
     } 
-    else if('`' == buffer[0]){
-        uint i;
-        parse_inline_code(current, buffer, buffer_sz, &i);
-        parse_start(current, buffer+i, buffer_sz-i, links);
-    } else {    
+    else {    
         uint i =0;
         parse_text( current, buffer,buffer_sz, &i, links);
     }
 }
 
-fn void parse_code_block(HTMLComponent* current, char* buffer, uint buffer_sz, AliasList* links){
-    assert(buffer[0] == '`');
-    assert(buffer[1] == '`');
-    assert(buffer[2] == '`');
-    assert(buffer[3].is_space() || buffer[3].is_blank());
+fn void parse_code_block(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i, AliasList* links){
+    // assert(buffer[0] == '`' || buffer[3].is_space());
+    // assert(buffer[1] == '`' || buffer[3].is_space());
+    // assert(buffer[2] == '`' || buffer[3].is_space());
+    // assert(buffer[3].is_space() || buffer[3].is_blank());
     HTMLComponent pre = HTMLComponent{.tag = "pre"};
     HTMLComponent code = HTMLComponent{.tag = "code"};
-    uint index = 4;
-    while(index+4 < buffer_sz && !('`' == buffer[index] && '`' == buffer[index+1] && '`' == buffer[index+2] && (buffer[3].is_space() || buffer[index+3].is_blank()))){
-        code.content.append_char(buffer[index++]);
+    uint index = *i;
+    if(buffer[0] == '`' && buffer[1] == '`' && buffer[2] == '`' && buffer[3].is_space()){
+        index = 4; //skip first 4!
+        while(index+4 < buffer_sz && !('`' == buffer[index] && '`' == buffer[index+1] && '`' == buffer[index+2] && (buffer[index+3].is_space() || buffer[index+3].is_blank()))){
+            code.content.append_char(buffer[index++]);
+        }
+    }else if(buffer[0].is_space() && buffer[1].is_space() && buffer[2].is_space() && buffer[3].is_space()){
+        do{
+            while(buffer[index] != '\n'){
+                code.content.append_char(buffer[index++]);
+            }
+            code.content.append_char(buffer[index]);
+        }while(buffer[index] == '\n' && buffer[index+1].is_space() && buffer[index+2].is_space() && buffer[index+3].is_space() && buffer[index+4].is_space());
     }
-    
     pre.add(code);
     current.add(pre);
-
-    if(index < buffer_sz){
-        parse_start(current, buffer+index+4, buffer_sz-index+4, links);
-    }
+    *i = index;
 }
 
 fn void parse_block_quote(HTMLComponent* current, char* buffer, uint buffer_sz, AliasList* links){
@@ -368,7 +367,24 @@ fn void parse_text(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i
         else if(buffer[i] == '*' || buffer[i] == '_'){
             parse_emphasis(root, buffer, buffer_sz, &i, buffer[i]);
             root.make_span();
-        }else{
+        }
+        else if (i+2 < buffer_sz &&  '`' == buffer[i] && '`' == buffer[i+1] && '`' == buffer[i+2]){
+            parse_code_block(current, buffer, buffer_sz, &i, links);
+            console::log("```Code Block```");
+        }
+        else if (i+4 < buffer_sz, 
+                && buffer[i].is_space() 
+                && buffer[i+1].is_space() 
+                && buffer[i+2].is_space() 
+                && buffer[i+3].is_space()
+        ) {
+            parse_code_block(current, buffer, buffer_sz, &i, links);
+            console::log("    Code Block");
+        }
+        else if('`' == buffer[i]){
+            parse_inline_code(current, buffer, buffer_sz, &i);
+        }
+        else{
             root.get_end().content.append_char(buffer[i]);
         }
     }
@@ -383,6 +399,7 @@ fn void parse_inline_code(HTMLComponent* current, char* buffer, uint buffer_sz, 
     while(i < buffer_sz && buffer[i] != '`'){
         next_comp.content.append_char(buffer[i++]);
     }
+    console::log("`Inline Code!`");
     *index = i+1;
 }
 

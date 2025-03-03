@@ -31,9 +31,9 @@ A website about me (Eventually!)! First I wanted to write some kind of basic mar
 | [X] | 1) List|
 | [X] | --- Horizontal Rule|
 | [X] | *** Horizontal Rule|
-| [X] | `Inline Code`|
-| [X] | ``` \`\`\`Code Block\`\`\` ```|
-| [ ] | ``` ....Code Block ```|
+| [-] | `Inline Code`|
+| [-] | ``` \`\`\`Code Block\`\`\` ```|
+| [-] | ``` ....Code Block ```|
 
 > [!IMPORTANT]  
 > This is still under construction! Come back another time!
