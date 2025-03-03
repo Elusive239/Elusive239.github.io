@@ -1,5 +1,5 @@
 # Elusive239.github.io
-A website about me (Eventually!)!
+A website about me (Eventually!)! First I wanted to write some kind of basic markdown parser...
 
 [Markdown Spec](https://commonmark.org/help/)
 
