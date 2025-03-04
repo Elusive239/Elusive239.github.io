@@ -167,18 +167,7 @@ fn void new_parse_md(HTMLComponent* current, InStream stream){
 
 fn void parse_start(HTMLComponent* current, char* buffer, uint buffer_sz, AliasList* links){
     console::log($$FUNC);
-    // console::log((buffer[0].is_space() && buffer[1].is_space() && buffer[2].is_space() && buffer[3].is_space()) ? "true" : "false");
-    // if((buffer_sz != 0 && (buffer[0] == 0 ||buffer[0].is_blank() || buffer[0].is_space()))){
-    //     int i = 0;
-    //     while(i<buffer_sz && (buffer[i].is_blank() || buffer[i].is_space() || buffer[i] == 0)){
-    //         i++;
-    //     }
-    //     buffer = buffer+i;
-    //     buffer_sz = buffer_sz - i;
-    // }
     if(buffer_sz > 0 && buffer[0] == 0) return;
-    // console::log("Loop");
-    // if(buffer_sz == 0 || buffer[0] == 0) return;
     if('#' == buffer[0]){
         int i = 0; 
         while(buffer[i] == '#') i++;
@@ -266,6 +255,7 @@ fn void parse_line(HTMLComponent* current, char* buffer, uint buffer_sz, AliasLi
         }
         else if(buffer[i] == '*' || buffer[i] == '_'){
             parse_emphasis(current, buffer, buffer_sz, &i, buffer[i]);
+            console::log("Span");
         }
         else if(buffer[i] == '`'){
             parse_code(current, buffer, buffer_sz, &i);
@@ -458,6 +448,35 @@ fn void parse_code(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i
 // }
 
 fn void parse_emphasis(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index, char to_check){
+    // if(to_check == '*' && (*index) >= 1){
+    //     if(
+    //         '\n' == buffer[(*index) - 1] && 
+    //         '*' == buffer[(*index)] && 
+    //         '*' == buffer[(*index) + 1] && 
+    //         '*' == buffer[(*index) + 2] && 
+    //         !buffer[(*index) + 3].is_alnum()
+    //     ){
+    //         uint zero = *index;
+    //         *index += 3;
+    //         while(*index < buffer_sz && buffer[(*index)] != '\n') {
+    //             *index = *index +1;
+    //             // if(!buffer[*index].is_blank() || !buffer[*index].is_space()){
+    //             //     console::log("character: %c|%d", buffer[*index], buffer[*index]);
+    //             //     HTMLComponent span = HTMLComponent{.tag = "span"};
+    //             //     span.content.appendf("%s", (String) buffer[zero..*index]);
+    //             //     current.add(span);
+    //             //     return;
+    //             // }
+    //         }
+    //         // console::log("DOPE");
+    //         current.add(HTMLComponent{.tag="hr"});
+    //         return;
+    //     }
+    //     console::log("* but not ***");
+    // }
+    // console::log("Index when Empasis: %d", *index);
+
+
     console::log($$FUNC);
     HTMLComponent* root = current;
     uint i = *index;
