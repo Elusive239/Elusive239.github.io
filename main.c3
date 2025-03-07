@@ -3,7 +3,7 @@ import noirdown;
 import std::io;
 import std::io::file;
 fn void main(){
-    HtmlDocument doc = noirdown::file_to_html("./test.md")!!;
+    HtmlDocument doc = noirdown::file_to_html("./codeBlock.md")!!;
     file::save("testOut.html", doc.data[:doc.size])!!;
 }
 

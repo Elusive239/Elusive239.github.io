@@ -29,9 +29,9 @@ A website about me (Eventually!)! First I wanted to write some kind of basic mar
 | [X] | - List|
 | [X] | 1. List|
 | [X] | 1) List|
-| [-] | --- Horizontal Rule|
-| [-] | *** Horizontal Rule|
-| [-] | `Inline Code`|
+| [X] | --- Horizontal Rule|
+| [X] | *** Horizontal Rule|
+| [X] | `Inline Code`|
 | [X] | ``` \`\`\`Code Block\`\`\` ```|
 | [X] | ``` ....Code Block ```|
 

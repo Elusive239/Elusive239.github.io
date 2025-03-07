@@ -357,14 +357,27 @@ fn void parse_text(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i
     HTMLComponent* root = current.get_end();
     root.make_span();
     uint i = *index;
+    uint new_line = *index;
     for(; i < buffer_sz; i++){
         if(buffer[i] == 0){
             continue;
+        } else if ( i == new_line && i+4 < buffer_sz && (
+            ('-' == buffer[new_line] && '-' == buffer[new_line+1] && '-' == buffer[new_line + 2] ||
+            '*' == buffer[new_line] && '*' == buffer[new_line+1] && '*' == buffer[new_line + 2]) &&
+            ( buffer[new_line + 3].is_blank())
+        )){
+            i+=2;
+            HTMLComponent lb = HTMLComponent{.tag="hr"};
+            root.add(lb);
+            root.make_span();
+            console::log("br");
         }
-        else if( ('`' == buffer[0] && '`' == buffer[1] && '`' == buffer[2])
-        || (buffer[0].is_space() && buffer[1].is_space() && buffer[2].is_space() && buffer[3].is_space()) 
-        || (buffer[i] == '`' )){
-            parse_code(current, buffer, buffer_sz, &i);
+        else if( (i == new_line 
+        && ('`' == buffer[new_line] && '`' == buffer[new_line+1] && '`' == buffer[new_line + 2]
+        || (buffer[new_line].is_space() && buffer[new_line+1].is_space() && buffer[new_line+2].is_space() && buffer[new_line+3].is_space())))
+        || buffer[i] == '`' ){
+            parse_code(root, buffer, buffer_sz, &i);
+            root.make_span();
         }
         else if(('!' == buffer[i] && '[' == buffer[i+1]) || '[' == buffer[i]){ 
             parse_link( root, buffer, buffer_sz, &i, links);
@@ -375,6 +388,10 @@ fn void parse_text(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i
             root.make_span();
         }
         else{
+            if(buffer[i] == '\n'){ 
+                new_line = i+1;
+                console::log("new_line: %c|%d", buffer[new_line], buffer[new_line]);
+            }
             root.get_end().content.append_char(buffer[i]);
         }
     }
@@ -423,16 +440,20 @@ fn void parse_code(HTMLComponent* current, char* buffer, uint buffer_sz, uint* i
         case '`' == buffer[0]:
             index++;
             HTMLComponent code = HTMLComponent{.tag="code"};
+            // console::log("char at %d: %c", index, buffer[index]);
             while(index < buffer_sz && buffer[index] != '`'){
                 code.content.append_char(buffer[index++]);
             }
             current.add(code);
-        break;
+            // index++;
+            // console::log("char at %d: %c", index, buffer[index]);
+            console::log("Code: %s", code.content);
         default: 
             index++;
     }
     
     *i = index;
+    // console::log("char at end %d: %c", *i, buffer[*i]);
 }
 
 // fn void parse_inline_code(HTMLComponent* current, char* buffer, uint buffer_sz, uint* index){
